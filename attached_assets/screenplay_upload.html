@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Screenplay | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Upload Screenplay</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Upload your screenplay PDF file. The system will use Natural Language Processing (NLP) to extract scenes, actors, locations, and other important information.
+                    </p>
+                    
+                    <form action="{{ url_for('screenplay_upload') }}" method="post" enctype="multipart/form-data" id="screenplay-upload-form">
+                        <div class="file-upload-area" onclick="document.getElementById('screenplay-file').click();">
+                            <div class="file-upload-icon">
+                                <i class="fas fa-file-pdf"></i>
+                            </div>
+                            <h5>Drag & Drop your PDF here</h5>
+                            <p class="text-muted">or click to browse</p>
+                            <p id="file-name-display" class="mt-2 d-none"></p>
+                            <input type="file" name="screenplay" id="screenplay-file" accept=".pdf" class="d-none">
+                        </div>
+                        
+                        <div class="mt-4">
+                            <h6>Processing Information</h6>
+                            <ul class="text-muted">
+                                <li>Your screenplay will be processed to extract the following elements:
+                                    <ul>
+                                        <li>Scenes with numbers, descriptions, and locations</li>
+                                        <li>Characters/actors and their relationships to scenes</li>
+                                        <li>Locations and setting details</li>
+                                        <li>Constraints and special requirements</li>
+                                    </ul>
+                                </li>
+                                <li>The processing may take a few minutes depending on screenplay length.</li>
+                                <li>After processing, you'll be able to review and adjust the extracted information.</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="mt-4 d-flex justify-content-between">
+                            <a href="{{ url_for('production_manager_dashboard') }}" class="btn btn-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="upload-submit" disabled>
+                                <i class="fas fa-upload me-1"></i> Upload & Process
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            {% if current_project and current_project.screenplay_path %}
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Current Screenplay</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-info">
+                            <p><strong>Screenplay already uploaded.</strong></p>
+                            <p>You currently have a screenplay uploaded for this project. If you upload a new one, it will replace the existing screenplay and all associated data.</p>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <p class="mb-0"><strong>Filename:</strong> {{ current_project.screenplay_path.split('/')[-1] }}</p>
+                            </div>
+                            <div>
+                                <a href="{{ url_for('screenplay_analysis') }}" class="btn btn-primary">
+                                    <i class="fas fa-eye me-1"></i> View Analysis
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/screenplay.js') }}"></script>
+{% endblock %}

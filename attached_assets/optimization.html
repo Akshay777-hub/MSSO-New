@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+
+{% block title %}Schedule Optimization | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>Schedule Optimization</h2>
+            <p class="text-muted">Select an algorithm to generate an optimized shooting schedule</p>
+        </div>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-warning">
+            <h5>No active project!</h5>
+            <p>Please select a project to continue.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% elif not scenes or not actors or not locations %}
+        <div class="alert alert-warning">
+            <h5>Missing screenplay data!</h5>
+            <p>Please upload a screenplay and enter cost information before creating a schedule.</p>
+            <div class="mt-3">
+                <a href="{{ url_for('screenplay_upload') }}" class="btn btn-primary me-2">
+                    <i class="fas fa-upload me-1"></i> Upload Screenplay
+                </a>
+                <a href="{{ url_for('cost_input') }}" class="btn btn-outline-primary">
+                    <i class="fas fa-dollar-sign me-1"></i> Input Costs
+                </a>
+            </div>
+        </div>
+    {% else %}
+        <div id="current-project-data" 
+             data-actor-count="{{ actors|length }}" 
+             data-location-count="{{ locations|length }}" 
+             data-scene-count="{{ scenes|length }}"></div>
+        
+        <form action="{{ url_for('optimization') }}" method="post" id="optimization-form">
+            <div class="row">
+                <div class="col-lg-8">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Choose Optimization Algorithm</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <div class="card algorithm-card mb-3 mb-md-0">
+                                        <div class="card-body">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="algorithm" id="algo-tabu" value="TSBM">
+                                                <label class="form-check-label" for="algo-tabu">
+                                                    <div class="algorithm-title">Tabu Search</div>
+                                                </label>
+                                            </div>
+                                            <p class="algorithm-description">
+                                                Efficiently explores solution space by avoiding recently visited solutions.
+                                            </p>
+                                            <button type="button" class="btn btn-sm btn-outline-info algorithm-info-btn"
+                                                   data-algorithm="TSBM" 
+                                                   data-title="Tabu Search-Based Method" 
+                                                   data-description="Tabu Search is a metaheuristic optimization algorithm that enhances local search by using memory structures (tabu lists) to avoid cycling and revisiting already explored solutions. It's particularly effective for scheduling problems with complex constraints.">
+                                                <i class="fas fa-info-circle"></i> More Info
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="card algorithm-card mb-3 mb-md-0">
+                                        <div class="card-body">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="algorithm" id="algo-pso" value="PSOBM">
+                                                <label class="form-check-label" for="algo-pso">
+                                                    <div class="algorithm-title">Particle Swarm</div>
+                                                </label>
+                                            </div>
+                                            <p class="algorithm-description">
+                                                Population-based approach inspired by social behavior of birds.
+                                            </p>
+                                            <button type="button" class="btn btn-sm btn-outline-info algorithm-info-btn"
+                                                   data-algorithm="PSOBM" 
+                                                   data-title="Particle Swarm Optimization-Based Method" 
+                                                   data-description="Particle Swarm Optimization mimics the social behavior of birds flocking or fish schooling. Each particle represents a potential solution that moves through the solution space guided by its own best known position and the entire swarm's best known position. Good for balancing exploration and exploitation.">
+                                                <i class="fas fa-info-circle"></i> More Info
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-4">
+                                    <div class="card algorithm-card">
+                                        <div class="card-body">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="radio" name="algorithm" id="algo-aco" value="ACOBM">
+                                                <label class="form-check-label" for="algo-aco">
+                                                    <div class="algorithm-title">Ant Colony</div>
+                                                </label>
+                                            </div>
+                                            <p class="algorithm-description">
+                                                Based on the foraging behavior of ant colonies finding optimal paths.
+                                            </p>
+                                            <button type="button" class="btn btn-sm btn-outline-info algorithm-info-btn"
+                                                   data-algorithm="ACOBM" 
+                                                   data-title="Ant Colony Optimization-Based Method" 
+                                                   data-description="Ant Colony Optimization is inspired by ants' behavior finding shortest paths between food and colony. Virtual ants deposit 'pheromones' on good paths, influencing future ants to follow. Particularly useful for identifying good sequences of scenes that minimize costs and travel.">
+                                                <i class="fas fa-info-circle"></i> More Info
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <div class="alert alert-info">
+                                    <h6><i class="fas fa-lightbulb me-2"></i>Algorithm Selection Guide</h6>
+                                    <ul class="mb-0">
+                                        <li><strong>Tabu Search:</strong> Best for schedules with many constraints and complex actor/location conflicts</li>
+                                        <li><strong>Particle Swarm:</strong> Good for balancing multiple optimization goals (cost vs. time)</li>
+                                        <li><strong>Ant Colony:</strong> Excellent for minimizing travel between locations and creating efficient sequences</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Schedule Parameters</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="schedule-name" class="form-label">Schedule Name</label>
+                                        <input type="text" class="form-control" id="schedule-name" name="schedule_name" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="start-date" class="form-label">Start Date</label>
+                                        <input type="date" class="form-control datepicker" id="start-date" name="start_date" required>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label for="end-date" class="form-label">End Date (Optional)</label>
+                                        <input type="date" class="form-control datepicker" id="end-date" name="end_date">
+                                        <div class="form-text">If not specified, the algorithm will determine the optimal duration.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for(get_dashboard_route()) }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
+                        </a>
+                        
+                        <div>
+                            <button type="button" class="btn btn-outline-info me-2" id="estimate-cost-btn">
+                                <i class="fas fa-calculator me-1"></i> Estimate Cost
+                            </button>
+                            <button type="submit" class="btn btn-primary" id="optimize-submit">
+                                <i class="fas fa-magic me-1"></i> Generate Schedule
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 d-none" id="cost-estimate-result"></div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Optimization Overview</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex flex-column gap-3">
+                                <div>
+                                    <h6 class="mb-1">Scenes</h6>
+                                    <p class="mb-0 fs-4">{{ scenes|length }}</p>
+                                </div>
+                                <div>
+                                    <h6 class="mb-1">Actors</h6>
+                                    <p class="mb-0 fs-4">{{ actors|length }}</p>
+                                </div>
+                                <div>
+                                    <h6 class="mb-1">Locations</h6>
+                                    <p class="mb-0 fs-4">{{ locations|length }}</p>
+                                </div>
+                            </div>
+                            
+                            <hr>
+                            
+                            <div class="alert alert-warning">
+                                <p class="mb-0">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    Schedule optimization may take several minutes depending on project complexity.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Previous Schedules</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if Schedule.query.filter_by(project_id=current_project.id).all() %}
+                                <div class="list-group">
+                                    {% for schedule in Schedule.query.filter_by(project_id=current_project.id).order_by(Schedule.created_at.desc()).limit(5).all() %}
+                                        <a href="{{ url_for('schedule_view', schedule_id=schedule.id) }}" class="list-group-item list-group-item-action">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h6 class="mb-1">{{ schedule.name }}</h6>
+                                                <small>{{ schedule.created_at.strftime('%Y-%m-%d') }}</small>
+                                            </div>
+                                            <p class="mb-1">{{ schedule.algorithm_used }} - {{ schedule.total_duration }} days</p>
+                                            <small>${{ schedule.total_cost|round(2) }}</small>
+                                        </a>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="text-muted">No schedules have been created yet.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    {% endif %}
+    
+    <!-- Algorithm Info Modal -->
+    <div class="modal fade" id="algorithm-info-modal" tabindex="-1" aria-labelledby="algorithm-info-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="algorithm-info-modal-label">Algorithm Information</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Content will be dynamically populated -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/optimization.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,351 @@
+{% extends "base.html" %}
+
+{% block title %}Cost & Constraint Input | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>Cost & Constraint Input</h2>
+            <p class="text-muted">Define costs, constraints, and priorities for scheduling optimization</p>
+        </div>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-warning">
+            <h5>No active project!</h5>
+            <p>Please select a project to continue.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% elif not current_project.screenplay_path %}
+        <div class="alert alert-warning">
+            <h5>No screenplay uploaded!</h5>
+            <p>Please upload a screenplay first to define costs and constraints.</p>
+            <a href="{{ url_for('screenplay_upload') }}" class="btn btn-primary">
+                <i class="fas fa-upload me-1"></i> Upload Screenplay
+            </a>
+        </div>
+    {% else %}
+        <form action="{{ url_for('cost_input') }}" method="post">
+            <div class="row">
+                <div class="col-lg-8">
+                    <ul class="nav nav-tabs mb-4" id="cost-tabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="actors-tab" data-bs-toggle="tab" data-bs-target="#actors-tab-pane" type="button" role="tab" aria-controls="actors-tab-pane" aria-selected="true">
+                                Actors
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="locations-tab" data-bs-toggle="tab" data-bs-target="#locations-tab-pane" type="button" role="tab" aria-controls="locations-tab-pane" aria-selected="false">
+                                Locations
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="scenes-tab" data-bs-toggle="tab" data-bs-target="#scenes-tab-pane" type="button" role="tab" aria-controls="scenes-tab-pane" aria-selected="false">
+                                Scenes
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="cost-tabs-content">
+                        <!-- Actors Tab -->
+                        <div class="tab-pane fade show active" id="actors-tab-pane" role="tabpanel" aria-labelledby="actors-tab" tabindex="0">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">Actor Costs</h5>
+                                    <div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="apply-actor-rate">
+                                            Apply Rate to All
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    {% if actors %}
+                                        <div class="mb-3">
+                                            <div class="input-group mb-3" id="bulk-actor-rate-group">
+                                                <input type="number" class="form-control" id="bulk-actor-rate" placeholder="Enter daily rate">
+                                                <button class="btn btn-outline-secondary" type="button" id="apply-rate-btn">Apply</button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Actor</th>
+                                                        <th>Character</th>
+                                                        <th>Scenes</th>
+                                                        <th>Cost Per Day ($)</th>
+                                                        <th>Contact Info</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for actor in actors %}
+                                                        <tr>
+                                                            <td>{{ actor.name }}</td>
+                                                            <td>{{ actor.character_name }}</td>
+                                                            <td>{{ actor.actor_scenes.count() }}</td>
+                                                            <td>
+                                                                <input type="number" class="form-control form-control-sm" name="actor_cost_{{ actor.id }}" value="{{ actor.cost_per_day }}" min="0" step="0.01">
+                                                            </td>
+                                                            <td>
+                                                                <div class="input-group input-group-sm">
+                                                                    <input type="email" class="form-control form-control-sm me-1" name="actor_email_{{ actor.id }}" value="{{ actor.email or '' }}" placeholder="Email">
+                                                                    <input type="text" class="form-control form-control-sm" name="actor_phone_{{ actor.id }}" value="{{ actor.phone or '' }}" placeholder="Phone">
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-info">
+                                            No actors found. Please upload and process a screenplay.
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Locations Tab -->
+                        <div class="tab-pane fade" id="locations-tab-pane" role="tabpanel" aria-labelledby="locations-tab" tabindex="0">
+                            <div class="card">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">Location Costs</h5>
+                                    <div>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="apply-location-rate">
+                                            Apply Rate to All
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="card-body">
+                                    {% if locations %}
+                                        <div class="mb-3">
+                                            <div class="input-group mb-3" id="bulk-location-rate-group">
+                                                <input type="number" class="form-control" id="bulk-location-rate" placeholder="Enter daily rate">
+                                                <button class="btn btn-outline-secondary" type="button" id="apply-location-rate-btn">Apply</button>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Location</th>
+                                                        <th>Type</th>
+                                                        <th>Scenes</th>
+                                                        <th>Cost Per Day ($)</th>
+                                                        <th>Address/Notes</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for location in locations %}
+                                                        <tr>
+                                                            <td>{{ location.name }}</td>
+                                                            <td>{{ location.address.split(' - ')[0] if ' - ' in location.address else 'N/A' }}</td>
+                                                            <td>{{ location.scenes.count() }}</td>
+                                                            <td>
+                                                                <input type="number" class="form-control form-control-sm" name="location_cost_{{ location.id }}" value="{{ location.cost_per_day }}" min="0" step="0.01">
+                                                            </td>
+                                                            <td>
+                                                                <input type="text" class="form-control form-control-sm" name="location_address_{{ location.id }}" value="{{ location.address }}" placeholder="Address/Notes">
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-info">
+                                            No locations found. Please upload and process a screenplay.
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Scenes Tab -->
+                        <div class="tab-pane fade" id="scenes-tab-pane" role="tabpanel" aria-labelledby="scenes-tab" tabindex="0">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Scene Priorities & Durations</h5>
+                                </div>
+                                <div class="card-body">
+                                    {% if scenes %}
+                                        <div class="alert alert-info mb-3">
+                                            <p class="mb-0"><strong>Priority Scale:</strong> 1 (lowest) to 10 (highest). Higher priority scenes will be scheduled earlier when possible.</p>
+                                        </div>
+                                        
+                                        <div class="table-responsive">
+                                            <table class="table table-hover">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Scene #</th>
+                                                        <th>Location</th>
+                                                        <th>INT/EXT</th>
+                                                        <th>Priority (1-10)</th>
+                                                        <th>Est. Duration (hrs)</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {% for scene in scenes %}
+                                                        <tr>
+                                                            <td>{{ scene.scene_number }}</td>
+                                                            <td>{{ scene.location.name if scene.location else 'Unknown' }}</td>
+                                                            <td>{{ scene.int_ext }} - {{ scene.time_of_day }}</td>
+                                                            <td>
+                                                                <select class="form-select form-select-sm" name="scene_priority_{{ scene.id }}">
+                                                                    {% for i in range(1, 11) %}
+                                                                        <option value="{{ i }}" {% if scene.priority == i %}selected{% endif %}>{{ i }}</option>
+                                                                    {% endfor %}
+                                                                </select>
+                                                            </td>
+                                                            <td>
+                                                                <input type="number" class="form-control form-control-sm" name="scene_duration_{{ scene.id }}" value="{{ scene.estimated_duration }}" min="0.25" max="12" step="0.25">
+                                                            </td>
+                                                        </tr>
+                                                    {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-info">
+                                            No scenes found. Please upload and process a screenplay.
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 d-flex justify-content-between">
+                        <a href="{{ url_for('screenplay_analysis') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left me-1"></i> Back to Analysis
+                        </a>
+                        
+                        <div>
+                            <a href="{{ url_for('production_manager_dashboard') }}" class="btn btn-outline-secondary me-2">
+                                Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-4">
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Next Steps</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group mb-3">
+                                <a href="{{ url_for('actor_availability') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="fw-bold">Actor Availability</div>
+                                        <div class="small text-muted">Set when actors are available</div>
+                                    </div>
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                                <a href="{{ url_for('location_availability') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="fw-bold">Location Availability</div>
+                                        <div class="small text-muted">Set when locations are available</div>
+                                    </div>
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                                <a href="{{ url_for('optimization') }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <div class="fw-bold">Generate Schedule</div>
+                                        <div class="small text-muted">Create optimized shooting schedule</div>
+                                    </div>
+                                    <i class="fas fa-chevron-right"></i>
+                                </a>
+                            </div>
+                            
+                            <div class="alert alert-warning">
+                                <p class="mb-2"><strong>Important:</strong></p>
+                                <p class="mb-0">Make sure to save your changes before proceeding to the next steps. Costs and constraints are crucial for schedule optimization.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Additional Options</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="{{ url_for('actor_availability') }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-calendar-alt me-1"></i> Set Actor Availability
+                                </a>
+                                <a href="{{ url_for('location_availability') }}" class="btn btn-outline-primary">
+                                    <i class="fas fa-map-marker-alt me-1"></i> Set Location Availability
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </form>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Apply bulk actor rate
+    const applyRateBtn = document.getElementById('apply-rate-btn');
+    if (applyRateBtn) {
+        applyRateBtn.addEventListener('click', function() {
+            const rateValue = document.getElementById('bulk-actor-rate').value;
+            if (rateValue && !isNaN(rateValue)) {
+                const actorCostInputs = document.querySelectorAll('input[name^="actor_cost_"]');
+                actorCostInputs.forEach(input => {
+                    input.value = rateValue;
+                });
+            }
+        });
+    }
+    
+    // Apply bulk location rate
+    const applyLocationRateBtn = document.getElementById('apply-location-rate-btn');
+    if (applyLocationRateBtn) {
+        applyLocationRateBtn.addEventListener('click', function() {
+            const rateValue = document.getElementById('bulk-location-rate').value;
+            if (rateValue && !isNaN(rateValue)) {
+                const locationCostInputs = document.querySelectorAll('input[name^="location_cost_"]');
+                locationCostInputs.forEach(input => {
+                    input.value = rateValue;
+                });
+            }
+        });
+    }
+    
+    // Show bulk actor rate input when button clicked
+    const applyActorRateBtn = document.getElementById('apply-actor-rate');
+    const bulkActorRateGroup = document.getElementById('bulk-actor-rate-group');
+    if (applyActorRateBtn && bulkActorRateGroup) {
+        bulkActorRateGroup.style.display = 'none';
+        applyActorRateBtn.addEventListener('click', function() {
+            bulkActorRateGroup.style.display = bulkActorRateGroup.style.display === 'none' ? 'flex' : 'none';
+        });
+    }
+    
+    // Show bulk location rate input when button clicked
+    const applyLocationRate = document.getElementById('apply-location-rate');
+    const bulkLocationRateGroup = document.getElementById('bulk-location-rate-group');
+    if (applyLocationRate && bulkLocationRateGroup) {
+        bulkLocationRateGroup.style.display = 'none';
+        applyLocationRate.addEventListener('click', function() {
+            bulkLocationRateGroup.style.display = bulkLocationRateGroup.style.display === 'none' ? 'flex' : 'none';
+        });
+    }
+});
+</script>
+{% endblock %}

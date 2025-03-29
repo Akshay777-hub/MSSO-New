@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% block title %}Scheduling Coordinator Dashboard | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="dashboard-header">
+        <h1 class="mb-0">Scheduling Coordinator Dashboard</h1>
+        <p class="text-muted">Manage scheduling and actor notifications</p>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-info">
+            <h5>Welcome to the Film Production Scheduling System!</h5>
+            <p>To get started, please create a new project or select an existing one.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% else %}
+        <div class="row dashboard-stats">
+            <div class="col-md-4">
+                <div class="card stat-card bg-primary-subtle">
+                    <div class="card-body">
+                        <div class="stat-value">{{ schedules|length }}</div>
+                        <div class="stat-label">Schedules</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card bg-success-subtle">
+                    <div class="card-body">
+                        <div class="stat-value">{{ actors|length }}</div>
+                        <div class="stat-label">Actors</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card bg-warning-subtle">
+                    <div class="card-body">
+                        <div class="stat-value">{{ scheduled_scenes|length }}</div>
+                        <div class="stat-label">Scenes Today</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row mt-4">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Today's Shooting Schedule</h5>
+                        <div class="badge bg-primary">{{ now.strftime('%A, %B %d, %Y') }}</div>
+                    </div>
+                    <div class="card-body">
+                        {% if scheduled_scenes %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Scene #</th>
+                                            <th>Location</th>
+                                            <th>Time</th>
+                                            <th>Actors</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for scheduled_scene in scheduled_scenes %}
+                                            {% set scene = Scene.query.get(scheduled_scene.scene_id) %}
+                                            {% set location = Location.query.get(scene.location_id) if scene.location_id else None %}
+                                            {% set actor_scenes = ActorScene.query.filter_by(scene_id=scene.id).all() %}
+                                            {% set scene_actors = [Actor.query.get(a.actor_id) for a in actor_scenes] %}
+                                            
+                                            <tr>
+                                                <td>{{ scene.scene_number }}</td>
+                                                <td>{{ location.name if location else 'N/A' }}</td>
+                                                <td>
+                                                    {{ scheduled_scene.start_time.strftime('%H:%M') }} - 
+                                                    {{ scheduled_scene.end_time.strftime('%H:%M') }}
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex flex-wrap gap-1">
+                                                        {% for actor in scene_actors %}
+                                                            <span class="badge bg-secondary">{{ actor.name }}</span>
+                                                        {% endfor %}
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <button type="button" class="btn btn-sm btn-primary scene-info-btn" 
+                                                            data-scene-id="{{ scene.id }}"
+                                                            data-scene-number="{{ scene.scene_number }}"
+                                                            data-location="{{ location.name if location else 'N/A' }}"
+                                                            data-description="{{ scene.description }}"
+                                                            data-actors="{{ ', '.join([a.name for a in scene_actors]) }}"
+                                                            data-start-time="{{ scheduled_scene.start_time.strftime('%H:%M') }}"
+                                                            data-end-time="{{ scheduled_scene.end_time.strftime('%H:%M') }}">
+                                                        <i class="fas fa-info-circle"></i>
+                                                    </button>
+                                                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#notify-actors-modal" data-scene-id="{{ scene.id }}">
+                                                        <i class="fas fa-envelope"></i>
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                No scenes scheduled for today.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Available Schedules</h5>
+                        <a href="{{ url_for('optimization') }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-plus me-1"></i> Create Schedule
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        {% if schedules %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Algorithm</th>
+                                            <th>Duration</th>
+                                            <th>Cost</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for schedule in schedules %}
+                                            <tr>
+                                                <td>{{ schedule.name }}</td>
+                                                <td>{{ schedule.algorithm_used }}</td>
+                                                <td>{{ schedule.total_duration }} days</td>
+                                                <td>${{ schedule.total_cost|round(2) }}</td>
+                                                <td>
+                                                    <a href="{{ url_for('schedule_view', schedule_id=schedule.id) }}" class="btn btn-sm btn-primary">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <div class="btn-group">
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                                            Export
+                                                        </button>
+                                                        <ul class="dropdown-menu">
+                                                            <li>
+                                                                <a class="dropdown-item export-btn" href="#" data-format="pdf" data-schedule-id="{{ schedule.id }}">
+                                                                    <i class="fas fa-file-pdf me-1"></i> PDF
+                                                                </a>
+                                                            </li>
+                                                            <li>
+                                                                <a class="dropdown-item export-btn" href="#" data-format="csv" data-schedule-id="{{ schedule.id }}">
+                                                                    <i class="fas fa-file-csv me-1"></i> CSV
+                                                                </a>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                No schedules available yet. Click "Create Schedule" to generate a new schedule.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Actor Directory</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if actors %}
+                            <div class="mb-3">
+                                <input type="text" class="form-control" id="actor-search" placeholder="Search actors...">
+                            </div>
+                            <div class="list-group actor-list" id="actor-list">
+                                {% for actor in actors %}
+                                    <div class="list-group-item list-group-item-action">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1">{{ actor.name }}</h6>
+                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#notify-actors-modal" data-actor-id="{{ actor.id }}">
+                                                <i class="fas fa-envelope"></i>
+                                            </button>
+                                        </div>
+                                        <p class="mb-1 small">{{ actor.character_name }}</p>
+                                        <small>
+                                            {% if actor.email %}
+                                                <i class="fas fa-envelope me-1"></i> {{ actor.email }}
+                                            {% endif %}
+                                            {% if actor.phone %}
+                                                <i class="fas fa-phone me-1"></i> {{ actor.phone }}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                No actors available. The Production Manager needs to upload and process a screenplay first.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Actions</h5>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        <a href="{{ url_for('optimization') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-calendar-alt me-2"></i> Generate New Schedule
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#notify-actors-modal">
+                            <i class="fas fa-envelope me-2"></i> Notify Actor
+                        </a>
+                        <a href="{{ url_for('view_notifications') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-bell me-2"></i> View Notifications
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    <!-- Scene Detail Modal -->
+    <div class="modal fade" id="scene-detail-modal" tabindex="-1" aria-labelledby="scene-detail-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="scene-detail-modal-label">Scene Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <h6>Location</h6>
+                        <p id="scene-location"></p>
+                    </div>
+                    <div class="mb-3">
+                        <h6>Time</h6>
+                        <p id="scene-time"></p>
+                    </div>
+                    <div class="mb-3">
+                        <h6>Actors</h6>
+                        <p id="scene-actors"></p>
+                    </div>
+                    <div class="mb-3">
+                        <h6>Description</h6>
+                        <p id="scene-description"></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Notify Actors Modal -->
+    <div class="modal fade" id="notify-actors-modal" tabindex="-1" aria-labelledby="notify-actors-modal-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="notify-actors-modal-label">Send Notification to Actor</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form action="{{ url_for('notify_actor') }}" method="post" id="notify-actor-form">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="actor-select" class="form-label">Select Actor</label>
+                            <select class="form-select" id="actor-select" name="actor_id" required>
+                                <option value="" selected disabled>Choose an actor...</option>
+                                {% for actor in actors %}
+                                    <option value="{{ actor.id }}">{{ actor.name }} ({{ actor.character_name }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="schedule-select" class="form-label">Schedule</label>
+                            <select class="form-select" id="schedule-select" name="schedule_id" required>
+                                <option value="" selected disabled>Choose a schedule...</option>
+                                {% for schedule in schedules %}
+                                    <option value="{{ schedule.id }}">{{ schedule.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="notification-message" class="form-label">Message</label>
+                            <textarea class="form-control" id="notification-message" name="message" rows="4" required></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Quick Templates</label>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-sm btn-outline-secondary message-template" data-template="Please confirm your availability for the scheduled shooting dates.">
+                                    Confirm Availability
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary message-template" data-template="Your scene is scheduled for today. Please arrive at the location on time.">
+                                    Today's Shooting
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary message-template" data-template="There has been a change in the shooting schedule. Please check the updated schedule.">
+                                    Schedule Change
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Send Notification</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/schedule.js') }}"></script>
+{% endblock %}

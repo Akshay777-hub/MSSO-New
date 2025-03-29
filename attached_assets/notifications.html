@@ -1,0 +1,282 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>Notifications</h2>
+            <p class="text-muted">View and manage your notifications</p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-9">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">All Notifications</h5>
+                    <div>
+                        <button id="mark-all-read-btn" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-check-double me-1"></i> Mark All as Read
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% if notifications %}
+                        <div class="list-group">
+                            {% for notification in notifications %}
+                                <div class="list-group-item list-group-item-action notification-item {% if not notification.read %}unread{% endif %}" 
+                                     data-notification-id="{{ notification.id }}">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">
+                                            {% if notification.schedule %}
+                                                Schedule: {{ notification.schedule.name }}
+                                            {% else %}
+                                                System Notification
+                                            {% endif %}
+                                        </h6>
+                                        <small class="text-muted">
+                                            {{ notification.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                        </small>
+                                    </div>
+                                    <p class="mb-1">{{ notification.message }}</p>
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <small class="text-muted">
+                                            {% if notification.schedule %}
+                                                <a href="{{ url_for('schedule_view', schedule_id=notification.schedule.id) }}" class="link-info">
+                                                    <i class="fas fa-calendar-alt me-1"></i> View Schedule
+                                                </a>
+                                            {% endif %}
+                                        </small>
+                                        <span class="badge rounded-pill {% if notification.read %}bg-secondary{% else %}bg-primary{% endif %}">
+                                            {% if notification.read %}Read{% else %}New{% endif %}
+                                        </span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <p class="mb-0">You don't have any notifications.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-3">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Notification Filters</h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <button class="list-group-item list-group-item-action active" data-filter="all">
+                            All Notifications
+                        </button>
+                        <button class="list-group-item list-group-item-action" data-filter="unread">
+                            Unread Only
+                        </button>
+                        <button class="list-group-item list-group-item-action" data-filter="schedule">
+                            Schedule Related
+                        </button>
+                        <button class="list-group-item list-group-item-action" data-filter="system">
+                            System Notifications
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Actions</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    <a href="{{ url_for(get_dashboard_route()) }}" class="list-group-item list-group-item-action">
+                        <i class="fas fa-chevron-left me-2"></i> Back to Dashboard
+                    </a>
+                    {% if current_user.role == 'scheduling_coordinator' %}
+                        <a href="#" class="list-group-item list-group-item-action" data-bs-toggle="modal" data-bs-target="#send-notification-modal">
+                            <i class="fas fa-paper-plane me-2"></i> Send New Notification
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {% if current_user.role == 'scheduling_coordinator' %}
+        <!-- Send Notification Modal -->
+        <div class="modal fade" id="send-notification-modal" tabindex="-1" aria-labelledby="send-notification-modal-label" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="send-notification-modal-label">Send New Notification</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('notify_actor') }}" method="post">
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="modal-schedule-select" class="form-label">Schedule</label>
+                                <select class="form-select" id="modal-schedule-select" name="schedule_id" required>
+                                    <option value="" selected disabled>Choose a schedule...</option>
+                                    {% for schedule in Schedule.query.filter_by(project_id=current_project.id if current_project else 0).all() %}
+                                        <option value="{{ schedule.id }}">{{ schedule.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="modal-actor-select" class="form-label">Recipient</label>
+                                <select class="form-select" id="modal-actor-select" name="actor_id" required>
+                                    <option value="" selected disabled>Choose a recipient...</option>
+                                    {% for actor in Actor.query.filter_by(project_id=current_project.id if current_project else 0).all() %}
+                                        <option value="{{ actor.id }}">{{ actor.name }} ({{ actor.character_name }})</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="modal-notification-message" class="form-label">Message</label>
+                                <textarea class="form-control" id="modal-notification-message" name="message" rows="4" required></textarea>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Send Notification</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Mark all as read
+    const markAllReadBtn = document.getElementById('mark-all-read-btn');
+    if (markAllReadBtn) {
+        markAllReadBtn.addEventListener('click', function() {
+            const unreadItems = document.querySelectorAll('.notification-item.unread');
+            unreadItems.forEach(item => {
+                item.classList.remove('unread');
+                
+                // Update badge
+                const badge = item.querySelector('.badge');
+                if (badge) {
+                    badge.classList.remove('bg-primary');
+                    badge.classList.add('bg-secondary');
+                    badge.textContent = 'Read';
+                }
+            });
+            
+            // Send request to mark all as read
+            fetch('/api/notifications/read', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .catch(error => {
+                console.error('Error marking notifications as read:', error);
+            });
+            
+            showAlert('All notifications marked as read.', 'success');
+        });
+    }
+    
+    // Notification item click handler
+    const notificationItems = document.querySelectorAll('.notification-item');
+    notificationItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const notificationId = this.getAttribute('data-notification-id');
+            
+            // Mark as read if unread
+            if (this.classList.contains('unread')) {
+                this.classList.remove('unread');
+                
+                // Update badge
+                const badge = this.querySelector('.badge');
+                if (badge) {
+                    badge.classList.remove('bg-primary');
+                    badge.classList.add('bg-secondary');
+                    badge.textContent = 'Read';
+                }
+                
+                // Send request to mark as read
+                fetch(`/api/notifications/${notificationId}/read`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .catch(error => {
+                    console.error('Error marking notification as read:', error);
+                });
+            }
+        });
+    });
+    
+    // Notification filter
+    const filterButtons = document.querySelectorAll('.list-group-item[data-filter]');
+    filterButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            // Update active state
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            this.classList.add('active');
+            
+            const filter = this.getAttribute('data-filter');
+            const notificationItems = document.querySelectorAll('.notification-item');
+            
+            notificationItems.forEach(item => {
+                if (filter === 'all') {
+                    item.style.display = '';
+                } else if (filter === 'unread') {
+                    item.style.display = item.classList.contains('unread') ? '' : 'none';
+                } else if (filter === 'schedule') {
+                    item.style.display = item.querySelector('a[href*="schedule_view"]') ? '' : 'none';
+                } else if (filter === 'system') {
+                    item.style.display = !item.querySelector('a[href*="schedule_view"]') ? '' : 'none';
+                }
+            });
+        });
+    });
+    
+    // Helper function to show alerts
+    function showAlert(message, type = 'info') {
+        const alertContainer = document.getElementById('alert-container') || createAlertContainer();
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.role = 'alert';
+        
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        alertContainer.appendChild(alertDiv);
+        
+        // Auto dismiss after 5 seconds
+        setTimeout(() => {
+            alertDiv.classList.remove('show');
+            setTimeout(() => alertDiv.remove(), 300);
+        }, 5000);
+    }
+    
+    function createAlertContainer() {
+        const container = document.createElement('div');
+        container.id = 'alert-container';
+        container.className = 'alert-container';
+        document.body.appendChild(container);
+        return container;
+    }
+});
+</script>
+{% endblock %}

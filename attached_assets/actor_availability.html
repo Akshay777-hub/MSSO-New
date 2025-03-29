@@ -1,0 +1,565 @@
+{% extends "base.html" %}
+
+{% block title %}Actor Availability | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>Actor Availability</h2>
+            <p class="text-muted">Set and manage actor availability for scheduling optimization</p>
+        </div>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-warning">
+            <h5>No active project!</h5>
+            <p>Please select a project to continue.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% elif not actors %}
+        <div class="alert alert-warning">
+            <h5>No actors found!</h5>
+            <p>Please upload a screenplay first to extract actor information.</p>
+            <a href="{{ url_for('screenplay_upload') }}" class="btn btn-primary">
+                <i class="fas fa-upload me-1"></i> Upload Screenplay
+            </a>
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Actor Availability Calendar</h5>
+                        <div>
+                            <button type="button" class="btn btn-sm btn-outline-danger" id="mark-unavailable-btn">
+                                <i class="fas fa-times me-1"></i> Mark Unavailable
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-success" id="mark-available-btn">
+                                <i class="fas fa-check me-1"></i> Mark Available
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="actor-select" class="form-label">Select Actor</label>
+                            <select class="form-select" id="actor-select">
+                                <option value="" selected disabled>Choose an actor...</option>
+                                {% for actor in actors %}
+                                    <option value="{{ actor.id }}">{{ actor.name }} ({{ actor.character_name }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Date Range</label>
+                            <div class="d-flex">
+                                <div class="me-2">
+                                    <input type="date" class="form-control" id="start-date" value="{{ now.strftime('%Y-%m-%d') }}">
+                                </div>
+                                <div>
+                                    <input type="date" class="form-control" id="end-date" value="{{ (now + datetime.timedelta(days=30)).strftime('%Y-%m-%d') }}">
+                                </div>
+                                <div class="ms-2">
+                                    <button type="button" class="btn btn-primary" id="generate-calendar-btn">
+                                        <i class="fas fa-calendar me-1"></i> Generate Calendar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="availability-calendar" class="mt-4">
+                            <div class="alert alert-info">
+                                <p class="mb-0">Select an actor and generate the calendar to set availability.</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('cost_input') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left me-1"></i> Back to Costs & Constraints
+                    </a>
+                    
+                    <div>
+                        <a href="{{ url_for('location_availability') }}" class="btn btn-outline-primary me-2">
+                            <i class="fas fa-map-marker-alt me-1"></i> Location Availability
+                        </a>
+                        <a href="{{ url_for('optimization') }}" class="btn btn-primary">
+                            <i class="fas fa-arrow-right me-1"></i> Continue to Optimization
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Actor List</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="input-group mb-3">
+                            <input type="text" class="form-control" placeholder="Search actors..." id="actor-search">
+                            <button class="btn btn-outline-secondary" type="button" id="actor-search-btn">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                        
+                        <div class="list-group actor-list">
+                            {% for actor in actors %}
+                                <a href="#" class="list-group-item list-group-item-action actor-list-item" data-actor-id="{{ actor.id }}">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ actor.name }}</h6>
+                                        <span class="badge bg-primary rounded-pill">
+                                            {{ actor.actor_scenes.count() }} scenes
+                                        </span>
+                                    </div>
+                                    <p class="mb-1">{{ actor.character_name }}</p>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Instructions</h5>
+                    </div>
+                    <div class="card-body">
+                        <ol class="mb-0">
+                            <li>Select an actor from the dropdown or from the list on the right.</li>
+                            <li>Set the date range for which you want to manage availability.</li>
+                            <li>Click "Generate Calendar" to view the calendar.</li>
+                            <li>Click on dates to toggle availability status:
+                                <ul>
+                                    <li><span class="text-success">Green</span>: Available</li>
+                                    <li><span class="text-danger">Red</span>: Unavailable</li>
+                                </ul>
+                            </li>
+                            <li>Use the "Mark Available/Unavailable" buttons to set multiple dates at once by selecting them.</li>
+                            <li>Changes are saved automatically.</li>
+                        </ol>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize variables
+    let selectedActorId = null;
+    let availabilityData = JSON.parse('{{ availability_data|safe }}' || '{}');
+    let selectedDates = [];
+    
+    // Actor selection
+    const actorSelect = document.getElementById('actor-select');
+    const actorListItems = document.querySelectorAll('.actor-list-item');
+    
+    if (actorSelect) {
+        actorSelect.addEventListener('change', function() {
+            selectedActorId = this.value;
+            clearSelectedDates();
+        });
+    }
+    
+    // Actor list item click
+    if (actorListItems.length) {
+        actorListItems.forEach(item => {
+            item.addEventListener('click', function(event) {
+                event.preventDefault();
+                
+                const actorId = this.getAttribute('data-actor-id');
+                
+                // Update dropdown selection
+                if (actorSelect) {
+                    actorSelect.value = actorId;
+                    selectedActorId = actorId;
+                    clearSelectedDates();
+                }
+                
+                // Highlight selected actor
+                actorListItems.forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+    }
+    
+    // Actor search
+    const actorSearchInput = document.getElementById('actor-search');
+    const actorSearchBtn = document.getElementById('actor-search-btn');
+    
+    if (actorSearchInput && actorSearchBtn) {
+        const searchActors = () => {
+            const searchTerm = actorSearchInput.value.toLowerCase();
+            
+            actorListItems.forEach(item => {
+                const actorName = item.querySelector('h6').textContent.toLowerCase();
+                const characterName = item.querySelector('p').textContent.toLowerCase();
+                
+                if (actorName.includes(searchTerm) || characterName.includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        };
+        
+        actorSearchInput.addEventListener('input', searchActors);
+        actorSearchBtn.addEventListener('click', searchActors);
+    }
+    
+    // Calendar generation
+    const generateCalendarBtn = document.getElementById('generate-calendar-btn');
+    const calendarContainer = document.getElementById('availability-calendar');
+    
+    if (generateCalendarBtn && calendarContainer) {
+        generateCalendarBtn.addEventListener('click', function() {
+            if (!selectedActorId) {
+                showAlert('Please select an actor first.', 'warning');
+                return;
+            }
+            
+            const startDate = document.getElementById('start-date').value;
+            const endDate = document.getElementById('end-date').value;
+            
+            if (!startDate || !endDate) {
+                showAlert('Please select a date range.', 'warning');
+                return;
+            }
+            
+            // Generate calendar
+            generateCalendar(startDate, endDate);
+        });
+    }
+    
+    // Mark available/unavailable buttons
+    const markAvailableBtn = document.getElementById('mark-available-btn');
+    const markUnavailableBtn = document.getElementById('mark-unavailable-btn');
+    
+    if (markAvailableBtn && markUnavailableBtn) {
+        markAvailableBtn.addEventListener('click', function() {
+            if (selectedDates.length === 0) {
+                showAlert('Please select dates in the calendar first.', 'warning');
+                return;
+            }
+            
+            updateAvailability(true);
+        });
+        
+        markUnavailableBtn.addEventListener('click', function() {
+            if (selectedDates.length === 0) {
+                showAlert('Please select dates in the calendar first.', 'warning');
+                return;
+            }
+            
+            updateAvailability(false);
+        });
+    }
+    
+    // Generate calendar with date range
+    function generateCalendar(startDateStr, endDateStr) {
+        if (!selectedActorId) return;
+        
+        // Parse dates
+        const startDate = new Date(startDateStr);
+        const endDate = new Date(endDateStr);
+        
+        // Validate date range
+        if (endDate < startDate) {
+            showAlert('End date must be after start date.', 'danger');
+            return;
+        }
+        
+        // Clear calendar container
+        calendarContainer.innerHTML = '';
+        
+        // Create calendar header
+        const calendarHeader = document.createElement('div');
+        calendarHeader.className = 'mb-3';
+        calendarHeader.innerHTML = `
+            <h5>Availability for ${actorSelect.options[actorSelect.selectedIndex].text}</h5>
+            <p class="text-muted">Click on dates to toggle availability. Selected dates: <span id="selected-dates-count">0</span></p>
+        `;
+        calendarContainer.appendChild(calendarHeader);
+        
+        // Create weekday header
+        const weekdayHeader = document.createElement('div');
+        weekdayHeader.className = 'd-flex mb-2';
+        
+        const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        weekdays.forEach(day => {
+            const dayElement = document.createElement('div');
+            dayElement.className = 'flex-fill text-center fw-bold';
+            dayElement.textContent = day;
+            weekdayHeader.appendChild(dayElement);
+        });
+        
+        calendarContainer.appendChild(weekdayHeader);
+        
+        // Generate weeks
+        let currentDate = new Date(startDate);
+        
+        // Adjust to start on Sunday
+        const dayOfWeek = currentDate.getDay();
+        if (dayOfWeek > 0) {
+            currentDate.setDate(currentDate.getDate() - dayOfWeek);
+        }
+        
+        while (currentDate <= endDate) {
+            // Create week row
+            const weekRow = document.createElement('div');
+            weekRow.className = 'd-flex mb-2';
+            
+            // Create days in the week
+            for (let i = 0; i < 7; i++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'flex-fill text-center p-2 border calendar-day';
+                
+                // Add date 
+                const dateStr = formatDate(currentDate);
+                dayElement.setAttribute('data-date', dateStr);
+                dayElement.textContent = currentDate.getDate();
+                
+                // Check if date is in range
+                const isInRange = currentDate >= startDate && currentDate <= endDate;
+                if (!isInRange) {
+                    dayElement.classList.add('text-muted');
+                    dayElement.style.pointerEvents = 'none';
+                } else {
+                    // Set availability class
+                    const actorAvailability = availabilityData[selectedActorId] || {};
+                    const isAvailable = actorAvailability[dateStr] !== false; // Default to available
+                    
+                    if (isAvailable) {
+                        dayElement.classList.add('available', 'bg-success-subtle');
+                    } else {
+                        dayElement.classList.add('unavailable', 'bg-danger-subtle');
+                    }
+                    
+                    // Add click event to toggle availability
+                    dayElement.addEventListener('click', function(event) {
+                        // If ctrl or shift key is pressed, add to selection
+                        if (event.ctrlKey || event.shiftKey) {
+                            this.classList.toggle('selected');
+                            
+                            const dateStr = this.getAttribute('data-date');
+                            const index = selectedDates.indexOf(dateStr);
+                            
+                            if (index === -1) {
+                                selectedDates.push(dateStr);
+                            } else {
+                                selectedDates.splice(index, 1);
+                            }
+                        } else {
+                            // If no modifier keys, toggle availability directly
+                            const dateStr = this.getAttribute('data-date');
+                            const isCurrentlyAvailable = this.classList.contains('available');
+                            
+                            updateSingleDateAvailability(dateStr, !isCurrentlyAvailable);
+                        }
+                        
+                        // Update selected dates counter
+                        updateSelectedDatesCount();
+                    });
+                }
+                
+                weekRow.appendChild(dayElement);
+                
+                // Move to next day
+                currentDate.setDate(currentDate.getDate() + 1);
+            }
+            
+            calendarContainer.appendChild(weekRow);
+        }
+        
+        // Add legend
+        const legend = document.createElement('div');
+        legend.className = 'mt-3 d-flex gap-3';
+        legend.innerHTML = `
+            <div><span class="badge bg-success">Available</span></div>
+            <div><span class="badge bg-danger">Unavailable</span></div>
+            <div><span class="badge bg-secondary">Selected</span></div>
+        `;
+        calendarContainer.appendChild(legend);
+    }
+    
+    // Update availability for selected dates
+    function updateAvailability(isAvailable) {
+        if (!selectedActorId || selectedDates.length === 0) return;
+        
+        // Show loading indicator
+        showAlert('Updating availability...', 'info');
+        
+        // Create promises for all updates
+        const updatePromises = selectedDates.map(dateStr => {
+            return fetch('{{ url_for("actor_availability") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: `actor_id=${selectedActorId}&date=${dateStr}&is_available=${isAvailable}`
+            })
+            .then(response => response.json());
+        });
+        
+        // Wait for all updates to complete
+        Promise.all(updatePromises)
+            .then(results => {
+                // Update availability data
+                if (!availabilityData[selectedActorId]) {
+                    availabilityData[selectedActorId] = {};
+                }
+                
+                selectedDates.forEach(dateStr => {
+                    availabilityData[selectedActorId][dateStr] = isAvailable;
+                    
+                    // Update calendar UI
+                    const dayElement = document.querySelector(`.calendar-day[data-date="${dateStr}"]`);
+                    if (dayElement) {
+                        if (isAvailable) {
+                            dayElement.classList.remove('unavailable', 'bg-danger-subtle');
+                            dayElement.classList.add('available', 'bg-success-subtle');
+                        } else {
+                            dayElement.classList.remove('available', 'bg-success-subtle');
+                            dayElement.classList.add('unavailable', 'bg-danger-subtle');
+                        }
+                        
+                        // Remove selection
+                        dayElement.classList.remove('selected');
+                    }
+                });
+                
+                // Clear selection
+                selectedDates = [];
+                updateSelectedDatesCount();
+                
+                showAlert(`Availability updated successfully for ${results.length} dates.`, 'success');
+            })
+            .catch(error => {
+                console.error('Error updating availability:', error);
+                showAlert('Error updating availability. Please try again.', 'danger');
+            });
+    }
+    
+    // Update availability for a single date (direct toggle)
+    function updateSingleDateAvailability(dateStr, isAvailable) {
+        if (!selectedActorId) return;
+        
+        fetch('{{ url_for("actor_availability") }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `actor_id=${selectedActorId}&date=${dateStr}&is_available=${isAvailable}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Update availability data
+            if (!availabilityData[selectedActorId]) {
+                availabilityData[selectedActorId] = {};
+            }
+            
+            availabilityData[selectedActorId][dateStr] = isAvailable;
+            
+            // Update calendar UI
+            const dayElement = document.querySelector(`.calendar-day[data-date="${dateStr}"]`);
+            if (dayElement) {
+                if (isAvailable) {
+                    dayElement.classList.remove('unavailable', 'bg-danger-subtle');
+                    dayElement.classList.add('available', 'bg-success-subtle');
+                } else {
+                    dayElement.classList.remove('available', 'bg-success-subtle');
+                    dayElement.classList.add('unavailable', 'bg-danger-subtle');
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error updating availability:', error);
+            showAlert('Error updating availability. Please try again.', 'danger');
+        });
+    }
+    
+    // Update selected dates counter
+    function updateSelectedDatesCount() {
+        const counter = document.getElementById('selected-dates-count');
+        if (counter) {
+            counter.textContent = selectedDates.length;
+        }
+    }
+    
+    // Clear selected dates
+    function clearSelectedDates() {
+        selectedDates = [];
+        const selectedElements = document.querySelectorAll('.calendar-day.selected');
+        selectedElements.forEach(el => el.classList.remove('selected'));
+        updateSelectedDatesCount();
+    }
+    
+    // Format date as YYYY-MM-DD
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+    
+    // Helper function to show alerts
+    function showAlert(message, type = 'info') {
+        const alertContainer = document.getElementById('alert-container') || createAlertContainer();
+        
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+        alertDiv.role = 'alert';
+        
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        alertContainer.appendChild(alertDiv);
+        
+        // Auto dismiss after 5 seconds
+        setTimeout(() => {
+            alertDiv.classList.remove('show');
+            setTimeout(() => alertDiv.remove(), 300);
+        }, 5000);
+    }
+    
+    function createAlertContainer() {
+        const container = document.createElement('div');
+        container.id = 'alert-container';
+        container.className = 'alert-container';
+        document.body.appendChild(container);
+        return container;
+    }
+    
+    // Add CSS for calendar selection
+    const style = document.createElement('style');
+    style.textContent = `
+        .calendar-day {
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .calendar-day:hover {
+            opacity: 0.8;
+        }
+        .calendar-day.selected {
+            background-color: var(--bs-secondary) !important;
+            color: white;
+        }
+    `;
+    document.head.appendChild(style);
+});
+</script>
+{% endblock %}

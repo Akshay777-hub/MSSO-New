@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}Screenplay Analysis | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>Screenplay Analysis</h2>
+            <p class="text-muted">Review and manage extracted screenplay elements</p>
+        </div>
+    </div>
+    
+    {% if not current_project or not current_project.screenplay_path %}
+        <div class="alert alert-warning">
+            <h5>No screenplay uploaded!</h5>
+            <p>Please upload a screenplay first to see the analysis.</p>
+            <a href="{{ url_for('screenplay_upload') }}" class="btn btn-primary">
+                <i class="fas fa-upload me-1"></i> Upload Screenplay
+            </a>
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Analysis Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex flex-column gap-3">
+                            <div>
+                                <h6 class="mb-1">Scenes</h6>
+                                <p class="mb-0 fs-4">{{ scenes|length }}</p>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Actors</h6>
+                                <p class="mb-0 fs-4">{{ actors|length }}</p>
+                            </div>
+                            <div>
+                                <h6 class="mb-1">Locations</h6>
+                                <p class="mb-0 fs-4">{{ locations|length }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        <div class="d-grid">
+                            <a href="{{ url_for('cost_input') }}" class="btn btn-primary">
+                                <i class="fas fa-dollar-sign me-1"></i> Input Costs & Constraints
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Quick Actions</h5>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        <a href="{{ url_for('screenplay_upload') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-sync-alt me-2"></i> Replace Screenplay
+                        </a>
+                        <a href="{{ url_for('cost_input') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-dollar-sign me-2"></i> Set Costs
+                        </a>
+                        <a href="{{ url_for('actor_availability') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-calendar-alt me-2"></i> Actor Availability
+                        </a>
+                        <a href="{{ url_for('location_availability') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-map-marker-alt me-2"></i> Location Availability
+                        </a>
+                        <a href="{{ url_for('optimization') }}" class="list-group-item list-group-item-action">
+                            <i class="fas fa-magic me-2"></i> Generate Schedule
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-9">
+                <div class="card">
+                    <div class="card-header">
+                        <ul class="nav nav-tabs card-header-tabs" id="screenplay-analysis-tabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <a class="nav-link active" id="scenes-tab" data-bs-toggle="tab" href="#scenes" role="tab" aria-controls="scenes" aria-selected="true">Scenes</a>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <a class="nav-link" id="actors-tab" data-bs-toggle="tab" href="#actors" role="tab" aria-controls="actors" aria-selected="false">Actors</a>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <a class="nav-link" id="locations-tab" data-bs-toggle="tab" href="#locations" role="tab" aria-controls="locations" aria-selected="false">Locations</a>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <a class="nav-link" id="constraints-tab" data-bs-toggle="tab" href="#constraints" role="tab" aria-controls="constraints" aria-selected="false">Constraints</a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="card-body">
+                        <div class="tab-content" id="screenplay-analysis-content">
+                            <!-- Scenes Tab -->
+                            <div class="tab-pane fade show active" id="scenes" role="tabpanel" aria-labelledby="scenes-tab">
+                                <div class="mb-3">
+                                    <input type="text" class="form-control" id="scene-search" placeholder="Search scenes...">
+                                </div>
+                                
+                                <div class="row">
+                                    {% for scene in scenes %}
+                                        <div class="col-md-6 col-lg-4">
+                                            <div class="card scene-card" 
+                                                 data-scene-id="{{ scene.id }}"
+                                                 data-scene-number="{{ scene.scene_number }}"
+                                                 data-location="{{ scene.location.name if scene.location else 'Unknown' }}"
+                                                 data-description="{{ scene.description }}"
+                                                 data-time-of-day="{{ scene.time_of_day }}"
+                                                 data-int-ext="{{ scene.int_ext }}">
+                                                <div class="card-body">
+                                                    <div class="scene-number">Scene {{ scene.scene_number }}</div>
+                                                    <div class="scene-location">
+                                                        {{ scene.int_ext }} - {{ scene.location.name if scene.location else 'Unknown' }}
+                                                        {% if scene.time_of_day %}
+                                                            - {{ scene.time_of_day }}
+                                                        {% endif %}
+                                                    </div>
+                                                    <p class="card-text small mt-2">
+                                                        {{ scene.description[:100] }}{% if scene.description|length > 100 %}...{% endif %}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {% else %}
+                                        <div class="col-12">
+                                            <div class="alert alert-info">No scenes found in the screenplay.</div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <!-- Actors Tab -->
+                            <div class="tab-pane fade" id="actors" role="tabpanel" aria-labelledby="actors-tab">
+                                <div class="mb-3">
+                                    <input type="text" class="form-control" id="actor-search" placeholder="Search actors...">
+                                </div>
+                                
+                                <div class="list-group actor-list" id="actor-list">
+                                    {% for actor in actors %}
+                                        <div class="list-group-item list-group-item-action">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h6 class="mb-1">{{ actor.name }}</h6>
+                                                <span class="badge bg-primary rounded-pill">
+                                                    {{ actor.actor_scenes.count() }} scenes
+                                                </span>
+                                            </div>
+                                            <p class="mb-1">Character: {{ actor.character_name }}</p>
+                                            <small class="text-muted">
+                                                {% set actor_scenes = actor.actor_scenes.all() %}
+                                                {% if actor_scenes %}
+                                                    Appears in scenes: 
+                                                    {% for actor_scene in actor_scenes[:5] %}
+                                                        {% set scene = Scene.query.get(actor_scene.scene_id) %}
+                                                        {{ scene.scene_number }}{% if not loop.last %}, {% endif %}
+                                                    {% endfor %}
+                                                    {% if actor_scenes|length > 5 %}...{% endif %}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    {% else %}
+                                        <div class="list-group-item">No actors found in the screenplay.</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <!-- Locations Tab -->
+                            <div class="tab-pane fade" id="locations" role="tabpanel" aria-labelledby="locations-tab">
+                                <div class="mb-3">
+                                    <input type="text" class="form-control" id="location-search" placeholder="Search locations...">
+                                </div>
+                                
+                                <div class="list-group location-list" id="location-list">
+                                    {% for location in locations %}
+                                        <div class="list-group-item list-group-item-action">
+                                            <div class="d-flex w-100 justify-content-between">
+                                                <h6 class="mb-1">{{ location.name }}</h6>
+                                                <span class="badge bg-primary rounded-pill">
+                                                    {{ location.scenes.count() }} scenes
+                                                </span>
+                                            </div>
+                                            <p class="mb-1">{{ location.address }}</p>
+                                            <small class="text-muted">
+                                                {% set location_scenes = location.scenes.all() %}
+                                                {% if location_scenes %}
+                                                    Used in scenes: 
+                                                    {% for scene in location_scenes[:5] %}
+                                                        {{ scene.scene_number }}{% if not loop.last %}, {% endif %}
+                                                    {% endfor %}
+                                                    {% if location_scenes|length > 5 %}...{% endif %}
+                                                {% endif %}
+                                            </small>
+                                        </div>
+                                    {% else %}
+                                        <div class="list-group-item">No locations found in the screenplay.</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            
+                            <!-- Constraints Tab -->
+                            <div class="tab-pane fade" id="constraints" role="tabpanel" aria-labelledby="constraints-tab">
+                                <div class="alert alert-info mb-4">
+                                    <h5>About Constraints</h5>
+                                    <p>Constraints are special requirements or limitations for scenes. They include weather conditions, time constraints, special equipment, etc.</p>
+                                </div>
+                                
+                                <div class="accordion" id="constraints-accordion">
+                                    {% for scene in scenes %}
+                                        {% if scene.constraints.count() > 0 %}
+                                            <div class="accordion-item">
+                                                <h2 class="accordion-header" id="constraint-heading-{{ scene.id }}">
+                                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#constraint-collapse-{{ scene.id }}" aria-expanded="false" aria-controls="constraint-collapse-{{ scene.id }}">
+                                                        Scene {{ scene.scene_number }} - {{ scene.location.name if scene.location else 'Unknown' }}
+                                                    </button>
+                                                </h2>
+                                                <div id="constraint-collapse-{{ scene.id }}" class="accordion-collapse collapse" aria-labelledby="constraint-heading-{{ scene.id }}" data-bs-parent="#constraints-accordion">
+                                                    <div class="accordion-body">
+                                                        <ul class="list-group">
+                                                            {% for constraint in scene.constraints %}
+                                                                <li class="list-group-item">
+                                                                    <span class="badge bg-{{ constraint.constraint_type == 'weather' and 'info' or constraint.constraint_type == 'time' and 'warning' or 'secondary' }} me-2">
+                                                                        {{ constraint.constraint_type|title }}
+                                                                    </span>
+                                                                    {{ constraint.description }}
+                                                                </li>
+                                                            {% endfor %}
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                    {% else %}
+                                        <div class="alert alert-info">No constraints detected in the screenplay.</div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scene Details Modal -->
+        <div class="modal fade" id="scene-details-modal" tabindex="-1" aria-labelledby="scene-details-modal-label" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="scene-details-modal-label">Scene Details</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <h6>Location</h6>
+                                <p id="scene-location"></p>
+                            </div>
+                            <div class="col-md-3">
+                                <h6>Time of Day</h6>
+                                <p id="scene-time"></p>
+                            </div>
+                            <div class="col-md-3">
+                                <h6>INT/EXT</h6>
+                                <p id="scene-int-ext"></p>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <h6>Description</h6>
+                            <p id="scene-description"></p>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/screenplay.js') }}"></script>
+{% endblock %}

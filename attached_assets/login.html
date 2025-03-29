@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Login | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="login-container card">
+        <div class="text-center mb-4">
+            <i class="fas fa-film fa-3x mb-3 text-primary"></i>
+            <h2>Film Production</h2>
+            <p class="text-muted">Scheduling System</p>
+        </div>
+        
+        <ul class="nav nav-tabs mb-4" id="auth-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if not register %}active{% endif %}" id="login-tab" data-bs-toggle="tab" data-bs-target="#login-tab-pane" type="button" role="tab" aria-controls="login-tab-pane" aria-selected="{% if not register %}true{% else %}false{% endif %}">Login</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link {% if register %}active{% endif %}" id="register-tab" data-bs-toggle="tab" data-bs-target="#register-tab-pane" type="button" role="tab" aria-controls="register-tab-pane" aria-selected="{% if register %}true{% else %}false{% endif %}">Register</button>
+            </li>
+        </ul>
+        
+        <div class="tab-content" id="auth-tabs-content">
+            <!-- Login Form -->
+            <div class="tab-pane fade {% if not register %}show active{% endif %}" id="login-tab-pane" role="tabpanel" aria-labelledby="login-tab" tabindex="0">
+                <form action="{{ url_for('login') }}" method="post">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="password" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="project_name" class="form-label">Project Name (Optional)</label>
+                        <input type="text" class="form-control" id="project_name" name="project_name">
+                        <div class="form-text">Enter a project name to access it directly after login.</div>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Login</button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Registration Form -->
+            <div class="tab-pane fade {% if register %}show active{% endif %}" id="register-tab-pane" role="tabpanel" aria-labelledby="register-tab" tabindex="0">
+                <form action="{{ url_for('register') }}" method="post">
+                    <div class="mb-3">
+                        <label for="reg-username" class="form-label">Username</label>
+                        <input type="text" class="form-control" id="reg-username" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="email" name="email" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="reg-password" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="reg-password" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="role" class="form-label">Role</label>
+                        <select class="form-select" id="role" name="role" required>
+                            <option value="" selected disabled>Select a role</option>
+                            <option value="director">Director</option>
+                            <option value="production_manager">Production Manager</option>
+                            <option value="scheduling_coordinator">Scheduling Coordinator</option>
+                        </select>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">Register</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="mt-4 text-center">
+            <small class="text-muted">
+                By logging in, you agree to our terms and conditions.
+            </small>
+        </div>
+    </div>
+</div>
+{% endblock %}
