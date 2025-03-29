@@ -14,6 +14,7 @@
                 </div>
                 <div class="card-body p-4">
                     <form method="post" action="{{ url_for('register') }}">
+                        {{ form.hidden_tag() }}
                         <div class="mb-3">
                             <label for="username" class="form-label">Username</label>
                             <div class="input-group">
@@ -44,7 +45,7 @@
                                 </span>
                                 <input type="password" class="form-control" id="password" name="password" required>
                             </div>
-                            <div class="form-text">Minimum 8 characters. Include letters and numbers.</div>
+                            <div class="form-text">Enter your desired password.</div>
                         </div>
                         
                         <div class="mb-3">
