@@ -5,7 +5,6 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.orm import DeclarativeBase
 from flask_login import LoginManager
-from flask_wtf.csrf import CSRFProtect
 
 
 # Configure logging
@@ -19,11 +18,13 @@ class Base(DeclarativeBase):
 # Initialize extensions
 db = SQLAlchemy(model_class=Base)
 login_manager = LoginManager()
-csrf = CSRFProtect()
 
 # Create the Flask app
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", os.urandom(24).hex())
+
+# Disable CSRF protection globally
+app.config['WTF_CSRF_ENABLED'] = False
 
 # Configure the database
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///film_production.db")
@@ -43,7 +44,6 @@ os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 db.init_app(app)
 login_manager.init_app(app)
 login_manager.login_view = 'login'
-csrf.init_app(app)
 
 # Setup login manager
 @login_manager.user_loader

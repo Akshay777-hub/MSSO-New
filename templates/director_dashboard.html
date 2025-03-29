@@ -93,7 +93,6 @@
                                                         <i class="fas fa-eye"></i>
                                                     </a>
                                                     <form action="{{ url_for('approve_schedule', schedule_id=schedule.id) }}" method="post" class="d-inline" id="approve-schedule-form">
-                                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                                                         <button type="submit" class="btn btn-sm btn-success">
                                                             <i class="fas fa-check"></i> Approve
                                                         </button>
@@ -176,7 +175,6 @@
                     </div>
                     <div class="card-body">
                         <form action="{{ url_for('invite_user') }}" method="post">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username</label>
                                 <input type="text" class="form-control" id="username" name="username" required>
