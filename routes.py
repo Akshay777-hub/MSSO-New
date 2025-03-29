@@ -137,9 +137,17 @@ def register_routes(app):
         
         current_project = get_current_project()
         
+        # Get notifications for the current user
+        notifications = Notification.query.filter_by(
+            recipient_id=current_user.id
+        ).order_by(Notification.created_at.desc()).limit(5).all()
+        
         return render_template(
             'production_dashboard.html',
-            current_project=current_project
+            current_project=current_project,
+            notifications=notifications,
+            ProjectAccess=ProjectAccess,
+            User=User
         )
     
     @app.route('/dashboard/coordinator')
@@ -152,9 +160,17 @@ def register_routes(app):
         
         current_project = get_current_project()
         
+        # Get notifications for the current user
+        notifications = Notification.query.filter_by(
+            recipient_id=current_user.id
+        ).order_by(Notification.created_at.desc()).limit(5).all()
+        
         return render_template(
             'coordinator_dashboard.html',
-            current_project=current_project
+            current_project=current_project,
+            notifications=notifications,
+            ProjectAccess=ProjectAccess,
+            User=User
         )
     
     @app.route('/projects/create', methods=['GET', 'POST'])
@@ -579,7 +595,8 @@ def register_routes(app):
             locations=locations,
             form=form,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            Schedule=Schedule
         )
     
     @app.route('/api/optimize-schedule', methods=['POST'])

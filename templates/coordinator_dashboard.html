@@ -276,7 +276,7 @@
                         <h5 class="mb-0">Approved Schedules</h5>
                     </div>
                     <div class="card-body">
-                        {% set schedules = current_project.schedules.order_by('created_at desc').limit(3).all() %}
+                        {% set schedules = current_project.schedules.all()[:3] %}
                         {% if schedules %}
                             <div class="list-group">
                                 {% for schedule in schedules %}
