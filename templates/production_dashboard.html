@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Production Manager Dashboard | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="dashboard-header">
+        <h1 class="mb-0">Production Manager Dashboard</h1>
+        <p class="text-muted">Manage screenplay processing and schedule generation</p>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-info">
+            <h5>Welcome to the Film Production Scheduling System!</h5>
+            <p>To get started, please create a new project or select an existing one.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% else %}
+        <div class="row dashboard-stats">
+            <div class="col-md-3">
+                <div class="card stat-card bg-primary-subtle">
+                    <div class="card-body">
+                        <div class="stat-value">{{ current_project.scenes.count() }}</div>
+                        <div class="stat-label">Scenes</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card bg-success-subtle">
+                    <div class="card-body">
+                        <div class="stat-value">{{ current_project.actors.count() }}</div>
+                        <div class="stat-label">Actors</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card bg-warning-subtle">
+                    <div class="card-body">
+                        <div class="stat-value">{{ current_project.locations.count() }}</div>
+                        <div class="stat-label">Locations</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card stat-card bg-info-subtle">
+                    <div class="card-body">
+                        <div class="stat-value">{{ current_project.schedules.count() }}</div>
+                        <div class="stat-label">Schedules</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Project Workflow</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="workflow-steps">
+                            <!-- Step 1: Upload Screenplay -->
+                            <div class="workflow-step {% if current_project.screenplay_path %}completed{% endif %}">
+                                <div class="step-icon">
+                                    <i class="fas fa-file-upload"></i>
+                                </div>
+                                <div class="step-content">
+                                    <h6>Upload Screenplay</h6>
+                                    <p class="text-muted small">Upload the screenplay to extract scenes, actors, and locations.</p>
+                                    {% if current_project.screenplay_path %}
+                                        <span class="badge bg-success">Completed</span>
+                                        <a href="{{ url_for('screenplay_upload') }}" class="btn btn-sm btn-outline-primary ms-2">
+                                            <i class="fas fa-edit me-1"></i> Update
+                                        </a>
+                                    {% else %}
+                                        <a href="{{ url_for('screenplay_upload') }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-upload me-1"></i> Upload Now
+                                        </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <!-- Step 2: Manage Cast & Crew -->
+                            <div class="workflow-step {% if current_project.actors.count() > 0 and current_project.locations.count() > 0 %}completed{% endif %}">
+                                <div class="step-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <div class="step-content">
+                                    <h6>Manage Cast & Crew</h6>
+                                    <p class="text-muted small">Review and edit extracted actors and locations.</p>
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('actors_list') }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-user-tie me-1"></i> Actors
+                                            <span class="badge bg-secondary ms-1">{{ current_project.actors.count() }}</span>
+                                        </a>
+                                        <a href="{{ url_for('locations_list') }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-map-marker-alt me-1"></i> Locations
+                                            <span class="badge bg-secondary ms-1">{{ current_project.locations.count() }}</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Step 3: Set Availability -->
+                            <div class="workflow-step">
+                                <div class="step-icon">
+                                    <i class="fas fa-calendar-alt"></i>
+                                </div>
+                                <div class="step-content">
+                                    <h6>Set Availability</h6>
+                                    <p class="text-muted small">Define when actors and locations are available for shooting.</p>
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('actor_availability') }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-user-clock me-1"></i> Actor Availability
+                                        </a>
+                                        <a href="{{ url_for('location_availability') }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-building me-1"></i> Location Availability
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Step 4: Generate Schedule -->
+                            <div class="workflow-step">
+                                <div class="step-icon">
+                                    <i class="fas fa-magic"></i>
+                                </div>
+                                <div class="step-content">
+                                    <h6>Generate Schedule</h6>
+                                    <p class="text-muted small">Run the optimization algorithm to create an efficient shooting schedule.</p>
+                                    <a href="{{ url_for('optimization') }}" class="btn btn-sm btn-primary">
+                                        <i class="fas fa-cogs me-1"></i> Optimize Schedule
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Recent Schedules</h5>
+                        <a href="{{ url_for('optimization') }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-plus me-1"></i> New Schedule
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        {% set schedules = current_project.schedules.order_by('created_at desc').limit(5).all() %}
+                        {% if schedules %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Algorithm</th>
+                                            <th>Duration</th>
+                                            <th>Cost</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for schedule in schedules %}
+                                            <tr>
+                                                <td>{{ schedule.name }}</td>
+                                                <td>{{ schedule.algorithm_used }}</td>
+                                                <td>{{ schedule.total_duration }} days</td>
+                                                <td>${{ schedule.total_cost|round(2) }}</td>
+                                                <td>{{ schedule.created_at.strftime('%Y-%m-%d') }}</td>
+                                                <td>
+                                                    <a href="{{ url_for('schedule_view', schedule_id=schedule.id) }}" class="btn btn-sm btn-primary">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <p class="mb-0">No schedules have been created yet. Use the optimization tool to generate schedules.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Notifications</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="notification-list">
+                            {% if notifications %}
+                                {% for notification in notifications %}
+                                    <div class="notification-item {% if not notification.read %}unread{% endif %}" data-notification-id="{{ notification.id }}">
+                                        <div class="notification-content">
+                                            <div class="notification-message">{{ notification.message }}</div>
+                                            <div class="notification-time">{{ notification.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="notification-empty">No notifications</div>
+                            {% endif %}
+                        </div>
+                        {% if notifications %}
+                            <div class="mt-3 text-center">
+                                <a href="{{ url_for('view_notifications') }}" class="btn btn-sm btn-primary">View All Notifications</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Project Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Name:</strong> {{ current_project.name }}</p>
+                        <p><strong>Description:</strong> {{ current_project.description or 'No description provided' }}</p>
+                        <p><strong>Created:</strong> {{ current_project.created_at.strftime('%Y-%m-%d') }}</p>
+                        <p><strong>Created By:</strong> {{ current_project.creator.username }}</p>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Team Members</h5>
+                    </div>
+                    <div class="card-body">
+                        <ul class="list-group">
+                            {% for access in ProjectAccess.query.filter_by(project_id=current_project.id).all() %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ User.query.get(access.user_id).username }}
+                                    <span class="badge bg-primary">{{ access.role|replace('_', ' ')|title }}</span>
+                                </li>
+                            {% else %}
+                                <li class="list-group-item">No team members yet</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .workflow-steps {
+        position: relative;
+    }
+    
+    .workflow-step {
+        display: flex;
+        margin-bottom: 2rem;
+        position: relative;
+    }
+    
+    .workflow-step::after {
+        content: '';
+        position: absolute;
+        top: 2.5rem;
+        left: 1.25rem;
+        height: calc(100% - 1rem);
+        width: 2px;
+        background-color: var(--bs-border-color);
+        z-index: 1;
+    }
+    
+    .workflow-step:last-child::after {
+        display: none;
+    }
+    
+    .step-icon {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 50%;
+        background-color: var(--bs-secondary-bg);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        position: relative;
+        z-index: 2;
+    }
+    
+    .workflow-step.completed .step-icon {
+        background-color: var(--bs-success);
+        color: white;
+    }
+    
+    .step-content {
+        flex-grow: 1;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/schedule.js') }}"></script>
+{% endblock %}

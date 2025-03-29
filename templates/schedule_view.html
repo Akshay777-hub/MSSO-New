@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Schedule Details | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h2>{{ schedule.name }}</h2>
+                <p class="text-muted">
+                    Created on {{ schedule.created_at.strftime('%Y-%m-%d') }} using {{ schedule.algorithm_used }}
+                </p>
+            </div>
+            <div>
+                {% if current_user.role == 'director' %}
+                    <form action="{{ url_for('approve_schedule', schedule_id=schedule.id) }}" method="post" class="d-inline" id="approve-schedule-form">
+                        <button type="submit" class="btn btn-success">
+                            <i class="fas fa-check me-1"></i> Approve Schedule
+                        </button>
+                    </form>
+                {% endif %}
+                <a href="#" class="btn btn-outline-primary ms-2" onclick="window.print()">
+                    <i class="fas fa-print me-1"></i> Print
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Shooting Schedule</h5>
+                    <span class="badge bg-primary">{{ schedule.total_duration }} Days</span>
+                </div>
+                <div class="card-body">
+                    {% if scenes_by_date %}
+                        <div class="schedule-timeline">
+                            {% for date_str, date_scenes in scenes_by_date.items() %}
+                                <div class="schedule-day">
+                                    <div class="schedule-date">
+                                        {{ date_str }}
+                                    </div>
+                                    
+                                    {% for scheduled_scene in date_scenes %}
+                                        {% set scene = Scene.query.get(scheduled_scene.scene_id) %}
+                                        <div class="card scene-card mb-3">
+                                            <div class="card-header scene-header">
+                                                <span class="scene-number">Scene {{ scene.scene_number }}</span>
+                                                <span class="scene-time">
+                                                    {% if scheduled_scene.start_time and scheduled_scene.end_time %}
+                                                        {{ scheduled_scene.start_time.strftime('%H:%M') }} - {{ scheduled_scene.end_time.strftime('%H:%M') }}
+                                                    {% else %}
+                                                        Time not set
+                                                    {% endif %}
+                                                </span>
+                                            </div>
+                                            <div class="card-body">
+                                                {% if scene.location %}
+                                                    <div class="scene-location">
+                                                        <i class="fas fa-map-marker-alt me-1"></i>
+                                                        {{ scene.int_ext }} {{ scene.location.name }} - {{ scene.time_of_day }}
+                                                    </div>
+                                                {% endif %}
+                                                
+                                                <p class="mb-2">{{ scene.description|truncate(200) }}</p>
+                                                
+                                                <div class="scene-actors">
+                                                    <strong>Cast:</strong>
+                                                    {% set actor_relationships = ActorScene.query.filter_by(scene_id=scene.id).all() %}
+                                                    {% if actor_relationships %}
+                                                        {% for rel in actor_relationships %}
+                                                            {% set actor = Actor.query.get(rel.actor_id) %}
+                                                            <span class="badge bg-secondary me-1">{{ actor.name }}</span>
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <span class="text-muted">No cast assigned</span>
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            {% if scheduled_scene.estimated_cost %}
+                                                <div class="card-footer text-end">
+                                                    <small class="text-muted">Estimated cost: ${{ scheduled_scene.estimated_cost|round(2) }}</small>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <p class="mb-0">No scenes have been scheduled yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Schedule Summary</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <strong>Total Cost:</strong>
+                        <span>${{ schedule.total_cost|round(2) }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <strong>Duration:</strong>
+                        <span>{{ schedule.total_duration }} days</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <strong>Total Scenes:</strong>
+                        <span>{{ scenes_by_date|sum(attribute='value')|length }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <strong>Created By:</strong>
+                        <span>{{ schedule.user.username if schedule.user else 'Unknown' }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <strong>Algorithm:</strong>
+                        <span>{{ schedule.algorithm_used }}</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Daily Shooting Costs</h5>
+                </div>
+                <div class="card-body">
+                    {% if scenes_by_date %}
+                        <div>
+                            {% for date_str, date_scenes in scenes_by_date.items() %}
+                                {% set daily_cost = 0 %}
+                                {% for scheduled_scene in date_scenes %}
+                                    {% set daily_cost = daily_cost + (scheduled_scene.estimated_cost or 0) %}
+                                {% endfor %}
+                                
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>{{ date_str }}</span>
+                                    <strong>${{ daily_cost|round(2) }}</strong>
+                                </div>
+                                {% if not loop.last %}<hr class="my-2">{% endif %}
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No cost data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Cast & Crew Call Times</h5>
+                </div>
+                <div class="card-body">
+                    {% if scenes_by_date %}
+                        {% set first_date = scenes_by_date.keys()|list|first %}
+                        {% set first_day_scenes = scenes_by_date.get(first_date, []) %}
+                        
+                        <h6 class="mb-3">{{ first_date }} Call Sheet</h6>
+                        
+                        {% set actor_call_times = {} %}
+                        {% for scheduled_scene in first_day_scenes %}
+                            {% set scene = Scene.query.get(scheduled_scene.scene_id) %}
+                            {% set actor_relationships = ActorScene.query.filter_by(scene_id=scene.id).all() %}
+                            
+                            {% for rel in actor_relationships %}
+                                {% set actor = Actor.query.get(rel.actor_id) %}
+                                {% if actor.name not in actor_call_times or scheduled_scene.start_time < actor_call_times[actor.name] %}
+                                    {% if scheduled_scene.start_time %}
+                                        {% set _ = actor_call_times.update({actor.name: scheduled_scene.start_time}) %}
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% endfor %}
+                        
+                        {% if actor_call_times %}
+                            <div class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Actor</th>
+                                            <th>Call Time</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for actor_name, call_time in actor_call_times.items() %}
+                                            <tr>
+                                                <td>{{ actor_name }}</td>
+                                                <td>{{ call_time.strftime('%H:%M') }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No call time data available for the first day.</p>
+                        {% endif %}
+                        
+                        <div class="text-center mt-3">
+                            <a href="#" class="btn btn-sm btn-outline-primary">View Full Call Sheet</a>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No call time data available.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="mt-4">
+        <a href="javascript:history.back()" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Back
+        </a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Schedule approval confirmation
+        const approveScheduleForm = document.getElementById('approve-schedule-form');
+        
+        if (approveScheduleForm) {
+            approveScheduleForm.addEventListener('submit', function(e) {
+                if (!confirm('Are you sure you want to approve this schedule? Notifications will be sent to all team members.')) {
+                    e.preventDefault();
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

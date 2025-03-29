@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block title %}Actors | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h2>Actors</h2>
+                <p class="text-muted">Manage actors, their roles, and costs</p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#add-actor-modal">
+                    <i class="fas fa-plus me-1"></i> Add Actor
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-warning">
+            <h5>No active project!</h5>
+            <p>Please select a project to continue.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% elif not actors %}
+        <div class="alert alert-info">
+            <h5>No actors found!</h5>
+            <p>No actors have been added to this project yet. You can:</p>
+            <ul>
+                <li>Upload a screenplay to automatically extract actors</li>
+                <li>Add actors manually using the "Add Actor" button</li>
+            </ul>
+            <a href="{{ url_for('screenplay_upload') }}" class="btn btn-primary me-2">
+                <i class="fas fa-upload me-1"></i> Upload Screenplay
+            </a>
+            <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#add-actor-modal">
+                <i class="fas fa-plus me-1"></i> Add Actor Manually
+            </button>
+        </div>
+    {% else %}
+        <!-- Filter and search options -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="search-actor" placeholder="Search actors...">
+                    <button class="btn btn-outline-secondary" type="button" id="search-btn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-sort me-1"></i> Sort
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#" data-sort="name">Name (A-Z)</a></li>
+                        <li><a class="dropdown-item" href="#" data-sort="name-desc">Name (Z-A)</a></li>
+                        <li><a class="dropdown-item" href="#" data-sort="cost-high">Cost: High to Low</a></li>
+                        <li><a class="dropdown-item" href="#" data-sort="cost-low">Cost: Low to High</a></li>
+                        <li><a class="dropdown-item" href="#" data-sort="scenes">Number of Scenes</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Actors list -->
+        <div class="card">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover actor-table mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Character</th>
+                                <th>Scenes</th>
+                                <th>Cost/Day</th>
+                                <th>Contact</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for actor in actors %}
+                                <tr>
+                                    <td>{{ actor.name }}</td>
+                                    <td>{{ actor.character_name }}</td>
+                                    <td>
+                                        <span class="badge bg-primary">{{ actor.actor_scenes.count() }}</span>
+                                    </td>
+                                    <td>
+                                        {% if actor.cost_per_day %}
+                                            ${{ actor.cost_per_day }}
+                                        {% else %}
+                                            <span class="text-muted">Not set</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if actor.email %}
+                                            <a href="mailto:{{ actor.email }}" class="text-decoration-none">
+                                                <i class="fas fa-envelope me-1"></i>{{ actor.email }}
+                                            </a>
+                                        {% endif %}
+                                        {% if actor.phone %}
+                                            <div>
+                                                <i class="fas fa-phone me-1"></i>{{ actor.phone }}
+                                            </div>
+                                        {% endif %}
+                                        {% if not actor.email and not actor.phone %}
+                                            <span class="text-muted">No contact info</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('edit_actor', actor_id=actor.id) }}" class="btn btn-sm btn-primary">
+                                            <i class="fas fa-edit"></i>
+                                        </a>
+                                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#delete-actor-modal" data-actor-id="{{ actor.id }}" data-actor-name="{{ actor.name }}">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mt-4 d-flex justify-content-between">
+            <a href="{{ url_for('screenplay_upload') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Screenplay
+            </a>
+            
+            <a href="{{ url_for('locations_list') }}" class="btn btn-primary">
+                <i class="fas fa-arrow-right me-1"></i> Continue to Locations
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Add Actor Modal -->
+<div class="modal fade" id="add-actor-modal" tabindex="-1" aria-labelledby="addActorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addActorModalLabel">Add New Actor</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('edit_actor', actor_id=0) }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="actor-name" class="form-label">Actor Name</label>
+                        <input type="text" class="form-control" id="actor-name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="character-name" class="form-label">Character Name</label>
+                        <input type="text" class="form-control" id="character-name" name="character_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="cost-per-day" class="form-label">Cost Per Day ($)</label>
+                        <input type="number" class="form-control" id="cost-per-day" name="cost_per_day" step="0.01" min="0" value="0">
+                    </div>
+                    <div class="mb-3">
+                        <label for="email" class="form-label">Email (Optional)</label>
+                        <input type="email" class="form-control" id="email" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone" class="form-label">Phone (Optional)</label>
+                        <input type="text" class="form-control" id="phone" name="phone">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Actor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Actor Modal -->
+<div class="modal fade" id="delete-actor-modal" tabindex="-1" aria-labelledby="deleteActorModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteActorModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <span id="delete-actor-name"></span>?</p>
+                <p class="text-danger">This action cannot be undone and may affect existing schedules.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="delete-actor-form" action="" method="post">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Search functionality
+        const searchInput = document.getElementById('search-actor');
+        const searchBtn = document.getElementById('search-btn');
+        const actorTable = document.querySelector('.actor-table');
+        
+        if (searchInput && searchBtn && actorTable) {
+            const performSearch = () => {
+                const searchTerm = searchInput.value.toLowerCase();
+                const rows = actorTable.querySelectorAll('tbody tr');
+                
+                rows.forEach(row => {
+                    const name = row.cells[0].textContent.toLowerCase();
+                    const character = row.cells[1].textContent.toLowerCase();
+                    
+                    if (name.includes(searchTerm) || character.includes(searchTerm)) {
+                        row.style.display = '';
+                    } else {
+                        row.style.display = 'none';
+                    }
+                });
+            };
+            
+            searchBtn.addEventListener('click', performSearch);
+            searchInput.addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+        }
+        
+        // Sort functionality
+        const sortLinks = document.querySelectorAll('[data-sort]');
+        
+        if (sortLinks.length && actorTable) {
+            sortLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const sortType = this.getAttribute('data-sort');
+                    sortActors(sortType);
+                });
+            });
+            
+            function sortActors(sortType) {
+                const tbody = actorTable.querySelector('tbody');
+                const rows = Array.from(tbody.querySelectorAll('tr'));
+                
+                rows.sort((a, b) => {
+                    let valueA, valueB;
+                    
+                    switch (sortType) {
+                        case 'name':
+                            valueA = a.cells[0].textContent.trim();
+                            valueB = b.cells[0].textContent.trim();
+                            return valueA.localeCompare(valueB);
+                        
+                        case 'name-desc':
+                            valueA = a.cells[0].textContent.trim();
+                            valueB = b.cells[0].textContent.trim();
+                            return valueB.localeCompare(valueA);
+                        
+                        case 'cost-high':
+                            valueA = parseFloat(a.cells[3].textContent.replace('$', '')) || 0;
+                            valueB = parseFloat(b.cells[3].textContent.replace('$', '')) || 0;
+                            return valueB - valueA;
+                        
+                        case 'cost-low':
+                            valueA = parseFloat(a.cells[3].textContent.replace('$', '')) || 0;
+                            valueB = parseFloat(b.cells[3].textContent.replace('$', '')) || 0;
+                            return valueA - valueB;
+                        
+                        case 'scenes':
+                            valueA = parseInt(a.cells[2].textContent.trim());
+                            valueB = parseInt(b.cells[2].textContent.trim());
+                            return valueB - valueA;
+                        
+                        default:
+                            return 0;
+                    }
+                });
+                
+                // Remove existing rows
+                rows.forEach(row => row.remove());
+                
+                // Append sorted rows
+                rows.forEach(row => tbody.appendChild(row));
+            }
+        }
+        
+        // Delete actor modal
+        const deleteModal = document.getElementById('delete-actor-modal');
+        
+        if (deleteModal) {
+            deleteModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const actorId = button.getAttribute('data-actor-id');
+                const actorName = button.getAttribute('data-actor-name');
+                
+                const nameSpan = document.getElementById('delete-actor-name');
+                const form = document.getElementById('delete-actor-form');
+                
+                if (nameSpan) nameSpan.textContent = actorName;
+                if (form) form.action = `/actors/delete/${actorId}`;
+            });
+        }
+    });
+</script>
+{% endblock %}

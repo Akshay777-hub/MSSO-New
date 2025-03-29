@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>Notifications</h2>
+            <p class="text-muted">View all of your notifications and updates</p>
+        </div>
+    </div>
+    
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">All Notifications</h5>
+                    <span class="badge bg-secondary">{{ notifications|length }} Total</span>
+                </div>
+                <div class="card-body p-0">
+                    {% if notifications %}
+                        <div class="list-group list-group-flush">
+                            {% for notification in notifications %}
+                                <div class="list-group-item notification-item" data-notification-id="{{ notification.id }}">
+                                    <div class="d-flex">
+                                        <div class="flex-shrink-0 notification-icon-container me-3">
+                                            {% if "approved" in notification.message|lower %}
+                                                <div class="notification-icon bg-success-subtle text-success">
+                                                    <i class="fas fa-check"></i>
+                                                </div>
+                                            {% elif "created" in notification.message|lower or "new" in notification.message|lower %}
+                                                <div class="notification-icon bg-primary-subtle text-primary">
+                                                    <i class="fas fa-plus"></i>
+                                                </div>
+                                            {% elif "invited" in notification.message|lower %}
+                                                <div class="notification-icon bg-info-subtle text-info">
+                                                    <i class="fas fa-user-plus"></i>
+                                                </div>
+                                            {% else %}
+                                                <div class="notification-icon bg-secondary-subtle text-secondary">
+                                                    <i class="fas fa-bell"></i>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex justify-content-between">
+                                                <h6 class="mb-1">
+                                                    {{ notification.message }}
+                                                </h6>
+                                                <small class="text-muted">{{ notification.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                                            </div>
+                                            
+                                            {% if notification.schedule and notification.schedule_id != 0 %}
+                                                <div class="mt-2">
+                                                    <a href="{{ url_for('schedule_view', schedule_id=notification.schedule_id) }}" class="btn btn-sm btn-outline-primary">
+                                                        <i class="fas fa-eye me-1"></i> View Schedule
+                                                    </a>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-bell fa-3x text-muted mb-3"></i>
+                            <h5>No Notifications</h5>
+                            <p class="text-muted">You don't have any notifications yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="javascript:history.back()" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left me-1"></i> Back
+                </a>
+                
+                {% if notifications %}
+                    <a href="#" class="btn btn-outline-danger ms-2" id="clear-all-btn">
+                        <i class="fas fa-trash me-1"></i> Clear All
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notification-icon-container {
+        display: flex;
+        align-items: flex-start;
+    }
+    
+    .notification-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+    }
+    
+    .notification-item.unread {
+        background-color: var(--bs-primary-bg-subtle);
+    }
+    
+    @media (max-width: 576px) {
+        .notification-icon {
+            width: 32px;
+            height: 32px;
+            font-size: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const clearAllBtn = document.getElementById('clear-all-btn');
+        
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                if (confirm('Are you sure you want to clear all notifications?')) {
+                    // You could add an actual AJAX request here to clear all notifications
+                    // For now, we'll just redirect back to the same page
+                    window.location.reload();
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

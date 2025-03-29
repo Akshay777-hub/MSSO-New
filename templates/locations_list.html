@@ -1,0 +1,378 @@
+{% extends "base.html" %}
+
+{% block title %}Locations | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <div>
+                <h2>Locations</h2>
+                <p class="text-muted">Manage filming locations and their costs</p>
+            </div>
+            <div>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#add-location-modal">
+                    <i class="fas fa-plus me-1"></i> Add Location
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-warning">
+            <h5>No active project!</h5>
+            <p>Please select a project to continue.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% elif not locations %}
+        <div class="alert alert-info">
+            <h5>No locations found!</h5>
+            <p>No locations have been added to this project yet. You can:</p>
+            <ul>
+                <li>Upload a screenplay to automatically extract locations</li>
+                <li>Add locations manually using the "Add Location" button</li>
+            </ul>
+            <a href="{{ url_for('screenplay_upload') }}" class="btn btn-primary me-2">
+                <i class="fas fa-upload me-1"></i> Upload Screenplay
+            </a>
+            <button type="button" class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#add-location-modal">
+                <i class="fas fa-plus me-1"></i> Add Location Manually
+            </button>
+        </div>
+    {% else %}
+        <!-- Filter and search options -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <input type="text" class="form-control" id="search-location" placeholder="Search locations...">
+                    <button class="btn btn-outline-secondary" type="button" id="search-btn">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                <div class="btn-group">
+                    <button type="button" class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-sort me-1"></i> Sort
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><a class="dropdown-item" href="#" data-sort="name">Name (A-Z)</a></li>
+                        <li><a class="dropdown-item" href="#" data-sort="name-desc">Name (Z-A)</a></li>
+                        <li><a class="dropdown-item" href="#" data-sort="cost-high">Cost: High to Low</a></li>
+                        <li><a class="dropdown-item" href="#" data-sort="cost-low">Cost: Low to High</a></li>
+                        <li><a class="dropdown-item" href="#" data-sort="scenes">Number of Scenes</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Locations grid -->
+        <div class="row">
+            {% for location in locations %}
+                <div class="col-md-6 col-lg-4 mb-4 location-card">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">{{ location.name }}</h5>
+                            <span class="badge bg-primary">{{ location.scenes.count() }} scenes</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <i class="fas fa-map-marker-alt me-2 text-danger"></i>
+                                {% if location.address %}
+                                    {{ location.address }}
+                                {% else %}
+                                    <span class="text-muted">No address provided</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="mb-3">
+                                <i class="fas fa-dollar-sign me-2 text-success"></i>
+                                {% if location.cost_per_day %}
+                                    ${{ location.cost_per_day }} per day
+                                {% else %}
+                                    <span class="text-muted">Cost not specified</span>
+                                {% endif %}
+                            </div>
+                            
+                            <div>
+                                <strong>Used in scenes:</strong>
+                                <div class="location-scenes mt-2">
+                                    {% set scenes_list = location.scenes.limit(5).all() %}
+                                    {% for scene in scenes_list %}
+                                        <span class="badge bg-secondary me-1 mb-1">{{ scene.scene_number }}</span>
+                                    {% endfor %}
+                                    
+                                    {% if location.scenes.count() > 5 %}
+                                        <span class="badge bg-secondary me-1 mb-1">+{{ location.scenes.count() - 5 }} more</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer d-flex justify-content-between">
+                            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#location-details-modal" data-location-id="{{ location.id }}">
+                                <i class="fas fa-info-circle me-1"></i> Details
+                            </button>
+                            
+                            <div>
+                                <a href="{{ url_for('edit_location', location_id=location.id) }}" class="btn btn-sm btn-primary">
+                                    <i class="fas fa-edit"></i> Edit
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#delete-location-modal" data-location-id="{{ location.id }}" data-location-name="{{ location.name }}">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="mt-4 d-flex justify-content-between">
+            <a href="{{ url_for('actors_list') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Back to Actors
+            </a>
+            
+            <a href="{{ url_for('actor_availability') }}" class="btn btn-primary">
+                <i class="fas fa-arrow-right me-1"></i> Continue to Availability
+            </a>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Add Location Modal -->
+<div class="modal fade" id="add-location-modal" tabindex="-1" aria-labelledby="addLocationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addLocationModalLabel">Add New Location</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('edit_location', location_id=0) }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="location-name" class="form-label">Location Name</label>
+                        <input type="text" class="form-control" id="location-name" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="address" class="form-label">Address</label>
+                        <input type="text" class="form-control" id="address" name="address">
+                    </div>
+                    <div class="mb-3">
+                        <label for="cost-per-day" class="form-label">Cost Per Day ($)</label>
+                        <input type="number" class="form-control" id="cost-per-day" name="cost_per_day" step="0.01" min="0" value="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Add Location</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Location Details Modal -->
+<div class="modal fade" id="location-details-modal" tabindex="-1" aria-labelledby="locationDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="locationDetailsModalLabel">Location Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="location-details-content">
+                    <!-- This will be filled with location details via JavaScript -->
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Location Modal -->
+<div class="modal fade" id="delete-location-modal" tabindex="-1" aria-labelledby="deleteLocationModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteLocationModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete <span id="delete-location-name"></span>?</p>
+                <p class="text-danger">This action cannot be undone and may affect existing schedules.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="delete-location-form" action="" method="post">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Search functionality
+        const searchInput = document.getElementById('search-location');
+        const searchBtn = document.getElementById('search-btn');
+        const locationCards = document.querySelectorAll('.location-card');
+        
+        if (searchInput && searchBtn && locationCards.length) {
+            const performSearch = () => {
+                const searchTerm = searchInput.value.toLowerCase();
+                
+                locationCards.forEach(card => {
+                    const locationName = card.querySelector('.card-header h5').textContent.toLowerCase();
+                    const locationAddress = card.querySelector('.card-body').textContent.toLowerCase();
+                    
+                    if (locationName.includes(searchTerm) || locationAddress.includes(searchTerm)) {
+                        card.style.display = '';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            };
+            
+            searchBtn.addEventListener('click', performSearch);
+            searchInput.addEventListener('keyup', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+        }
+        
+        // Sort functionality
+        const sortLinks = document.querySelectorAll('[data-sort]');
+        
+        if (sortLinks.length && locationCards.length) {
+            sortLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const sortType = this.getAttribute('data-sort');
+                    sortLocations(sortType);
+                });
+            });
+            
+            function sortLocations(sortType) {
+                const container = document.querySelector('.location-card').parentNode;
+                const cards = Array.from(locationCards);
+                
+                cards.sort((a, b) => {
+                    let valueA, valueB;
+                    
+                    switch (sortType) {
+                        case 'name':
+                            valueA = a.querySelector('.card-header h5').textContent.trim();
+                            valueB = b.querySelector('.card-header h5').textContent.trim();
+                            return valueA.localeCompare(valueB);
+                        
+                        case 'name-desc':
+                            valueA = a.querySelector('.card-header h5').textContent.trim();
+                            valueB = b.querySelector('.card-header h5').textContent.trim();
+                            return valueB.localeCompare(valueA);
+                        
+                        case 'cost-high':
+                            valueA = a.querySelector('.card-body').textContent.includes('$') ? 
+                                parseFloat(a.querySelector('.card-body').textContent.match(/\$(\d+(\.\d+)?)/)[1]) : 0;
+                            valueB = b.querySelector('.card-body').textContent.includes('$') ? 
+                                parseFloat(b.querySelector('.card-body').textContent.match(/\$(\d+(\.\d+)?)/)[1]) : 0;
+                            return valueB - valueA;
+                        
+                        case 'cost-low':
+                            valueA = a.querySelector('.card-body').textContent.includes('$') ? 
+                                parseFloat(a.querySelector('.card-body').textContent.match(/\$(\d+(\.\d+)?)/)[1]) : 0;
+                            valueB = b.querySelector('.card-body').textContent.includes('$') ? 
+                                parseFloat(b.querySelector('.card-body').textContent.match(/\$(\d+(\.\d+)?)/)[1]) : 0;
+                            return valueA - valueB;
+                        
+                        case 'scenes':
+                            valueA = parseInt(a.querySelector('.card-header .badge').textContent);
+                            valueB = parseInt(b.querySelector('.card-header .badge').textContent);
+                            return valueB - valueA;
+                        
+                        default:
+                            return 0;
+                    }
+                });
+                
+                // Remove existing cards
+                cards.forEach(card => card.remove());
+                
+                // Append sorted cards
+                cards.forEach(card => container.appendChild(card));
+            }
+        }
+        
+        // Location details modal
+        const detailsModal = document.getElementById('location-details-modal');
+        
+        if (detailsModal) {
+            detailsModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const locationId = button.getAttribute('data-location-id');
+                const detailsContent = document.getElementById('location-details-content');
+                
+                // This is a placeholder for fetching location details
+                // In a real implementation, you would make an AJAX request
+                
+                // For demonstration, we'll just use static HTML
+                detailsContent.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h5>Location Information</h5>
+                            <p><strong>ID:</strong> ${locationId}</p>
+                            <p><strong>Name:</strong> ${button.closest('.card').querySelector('.card-header h5').textContent}</p>
+                            <p><strong>Address:</strong> ${button.closest('.card').querySelector('.card-body').textContent.includes('map-marker-alt') ? 
+                                button.closest('.card').querySelector('.card-body').textContent.split('$')[0].trim().replace('No address provided', 'N/A') : 'N/A'}</p>
+                            <p><strong>Cost Per Day:</strong> ${button.closest('.card').querySelector('.card-body').textContent.includes('$') ? 
+                                button.closest('.card').querySelector('.card-body').textContent.match(/\$(\d+(\.\d+)?)/)[0] : 'Not specified'}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Associated Scenes</h5>
+                            <div class="scene-list">
+                                ${button.closest('.card').querySelector('.location-scenes').innerHTML}
+                            </div>
+                        </div>
+                    </div>
+                    <hr>
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h5>Availability</h5>
+                            <p>To manage this location's availability, visit the <a href="/location-availability">Location Availability</a> page.</p>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        // Delete location modal
+        const deleteModal = document.getElementById('delete-location-modal');
+        
+        if (deleteModal) {
+            deleteModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const locationId = button.getAttribute('data-location-id');
+                const locationName = button.getAttribute('data-location-name');
+                
+                const nameSpan = document.getElementById('delete-location-name');
+                const form = document.getElementById('delete-location-form');
+                
+                if (nameSpan) nameSpan.textContent = locationName;
+                if (form) form.action = `/locations/delete/${locationId}`;
+            });
+        }
+    });
+</script>
+{% endblock %}

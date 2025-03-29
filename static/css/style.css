@@ -1,0 +1,297 @@
+/* Main Styles for Film Production Scheduling System */
+
+/* Dashboard Cards */
+.stat-card {
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: bold;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    opacity: 0.8;
+}
+
+.dashboard-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.dashboard-stats {
+    margin-bottom: 2rem;
+}
+
+/* Calendar Styles */
+.calendar-table {
+    width: 100%;
+    table-layout: fixed;
+}
+
+.calendar-table th {
+    text-align: center;
+    background-color: var(--bs-secondary-bg);
+}
+
+.calendar-table td {
+    height: 5rem;
+    vertical-align: top;
+    position: relative;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.date-number {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    font-weight: bold;
+}
+
+.time-range {
+    font-size: 0.8rem;
+    margin-top: 1.5rem;
+    text-align: center;
+}
+
+.empty-cell {
+    background-color: var(--bs-tertiary-bg);
+}
+
+.available {
+    background-color: var(--bs-success-bg-subtle);
+}
+
+.unavailable {
+    background-color: var(--bs-danger-bg-subtle);
+    text-decoration: line-through;
+}
+
+.selected {
+    outline: 3px solid var(--bs-primary);
+    position: relative;
+    z-index: 1;
+}
+
+/* Notifications */
+.notification-list {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--bs-border-color);
+    transition: background-color 0.2s ease;
+}
+
+.notification-item:hover {
+    background-color: var(--bs-secondary-bg);
+}
+
+.notification-item.unread {
+    background-color: var(--bs-primary-bg-subtle);
+    font-weight: bold;
+}
+
+.notification-message {
+    margin-bottom: 0.25rem;
+}
+
+.notification-time {
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color);
+}
+
+.notification-empty {
+    padding: 1rem;
+    text-align: center;
+    color: var(--bs-secondary-color);
+}
+
+/* Scene List */
+.scene-card {
+    margin-bottom: 1rem;
+    transition: transform 0.2s ease;
+}
+
+.scene-card:hover {
+    transform: translateY(-3px);
+}
+
+.scene-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.scene-number {
+    font-weight: bold;
+    color: var(--bs-primary);
+}
+
+.scene-time {
+    font-size: 0.8rem;
+    color: var(--bs-secondary-color);
+}
+
+.scene-location {
+    font-style: italic;
+    margin-bottom: 0.5rem;
+}
+
+.scene-actors {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+}
+
+/* Schedule Calendar */
+.schedule-day {
+    margin-bottom: 2rem;
+}
+
+.schedule-date {
+    background-color: var(--bs-primary-bg-subtle);
+    padding: 0.5rem 1rem;
+    border-radius: 0.25rem;
+    margin-bottom: 1rem;
+    font-weight: bold;
+}
+
+/* Cost sliders */
+.cost-factor-slider {
+    width: 100%;
+}
+
+.cost-factor-container {
+    margin-bottom: 1.5rem;
+}
+
+.cost-factor-value {
+    font-weight: bold;
+    color: var(--bs-primary);
+}
+
+/* Upload Area */
+.upload-container {
+    border: 2px dashed var(--bs-border-color);
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+    transition: border-color 0.3s ease;
+}
+
+.upload-container:hover,
+.upload-container.dragover {
+    border-color: var(--bs-primary);
+}
+
+.upload-icon {
+    font-size: 3rem;
+    color: var(--bs-secondary-color);
+    margin-bottom: 1rem;
+}
+
+/* Optimization */
+.algorithm-card {
+    cursor: pointer;
+    transition: all 0.2s ease;
+    height: 100%;
+}
+
+.algorithm-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.algorithm-card.selected {
+    border-color: var(--bs-primary);
+    background-color: var(--bs-primary-bg-subtle);
+}
+
+.optimization-parameters {
+    margin-top: 2rem;
+}
+
+.loading-indicator {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 2rem 0;
+}
+
+.loading-spinner {
+    width: 3rem;
+    height: 3rem;
+}
+
+/* Schedule Visualization */
+.schedule-timeline {
+    position: relative;
+    padding-left: 4rem;
+    margin-bottom: 3rem;
+}
+
+.timeline-day {
+    position: relative;
+    padding-bottom: 1.5rem;
+    padding-left: 2rem;
+    border-left: 2px solid var(--bs-primary);
+}
+
+.timeline-day:last-child {
+    border-left: none;
+}
+
+.timeline-date {
+    position: absolute;
+    left: -4rem;
+    top: 0;
+    font-weight: bold;
+    width: 3rem;
+    text-align: right;
+}
+
+.timeline-dot {
+    position: absolute;
+    left: -0.5rem;
+    top: 0.25rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
+}
+
+.timeline-scene {
+    background-color: var(--bs-secondary-bg);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .stat-value {
+        font-size: 1.5rem;
+    }
+    
+    .calendar-table td {
+        height: 4rem;
+    }
+    
+    .timeline-day {
+        padding-left: 1.5rem;
+    }
+    
+    .timeline-date {
+        left: -3.5rem;
+        font-size: 0.85rem;
+    }
+}

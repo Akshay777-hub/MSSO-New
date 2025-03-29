@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if actor %}Edit Actor{% else %}Add Actor{% endif %} | Film Production Scheduling System
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>{% if actor %}Edit Actor: {{ actor.name }}{% else %}Add New Actor{% endif %}</h2>
+            <p class="text-muted">{% if actor %}Update actor information{% else %}Add a new actor to the project{% endif %}</p>
+        </div>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-warning">
+            <h5>No active project!</h5>
+            <p>Please select a project to continue.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">{% if actor %}Edit Actor Details{% else %}Actor Details{% endif %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="{{ url_for('edit_actor', actor_id=actor.id if actor else 0) }}">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="name" class="form-label">Actor Name</label>
+                                    <input type="text" class="form-control" id="name" name="name" value="{{ actor.name if actor else '' }}" required>
+                                    <div class="form-text">Full name of the actor</div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="character_name" class="form-label">Character Name</label>
+                                    <input type="text" class="form-control" id="character_name" name="character_name" value="{{ actor.character_name if actor else '' }}" required>
+                                    <div class="form-text">Name of the character in the screenplay</div>
+                                </div>
+                            </div>
+                            
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="cost_per_day" class="form-label">Cost Per Day ($)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">$</span>
+                                        <input type="number" class="form-control" id="cost_per_day" name="cost_per_day" step="0.01" min="0" value="{{ actor.cost_per_day if actor else '0' }}">
+                                    </div>
+                                    <div class="form-text">Daily rate paid to the actor</div>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="email" class="form-label">Email (Optional)</label>
+                                    <input type="email" class="form-control" id="email" name="email" value="{{ actor.email if actor else '' }}">
+                                    <div class="form-text">Contact email for scheduling communications</div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="phone" class="form-label">Phone (Optional)</label>
+                                <input type="text" class="form-control" id="phone" name="phone" value="{{ actor.phone if actor else '' }}">
+                                <div class="form-text">Contact phone number</div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mt-4">
+                                <a href="{{ url_for('actors_list') }}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i> Back to Actors
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i> {% if actor %}Update{% else %}Add{% endif %} Actor
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                {% if actor %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Scenes</h5>
+                        </div>
+                        <div class="card-body">
+                            {% set actor_scenes = actor.actor_scenes.all() %}
+                            {% if actor_scenes %}
+                                <ul class="list-group">
+                                    {% for actor_scene in actor_scenes %}
+                                        {% set scene = Scene.query.get(actor_scene.scene_id) %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>Scene {{ scene.scene_number }}</strong>
+                                                <div class="text-muted small">
+                                                    {% if scene.location %}
+                                                        {{ scene.int_ext }} {{ scene.location.name }}
+                                                    {% else %}
+                                                        Location not set
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                            <span class="badge bg-primary">{{ actor_scene.lines_count }} lines</span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <p class="mb-0">This actor is not assigned to any scenes.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Availability</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Manage when this actor is available for shooting:</p>
+                            <a href="{{ url_for('actor_availability') }}?actor_id={{ actor.id }}" class="btn btn-primary w-100">
+                                <i class="fas fa-calendar-check me-1"></i> Set Availability
+                            </a>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Instructions</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Adding actors manually allows you to:</p>
+                            <ul>
+                                <li>Include cast members not detected in the screenplay</li>
+                                <li>Add supporting actors or extras</li>
+                                <li>Set proper contact information for scheduling</li>
+                                <li>Define accurate daily rates for budget calculations</li>
+                            </ul>
+                            <p class="mb-0">After adding an actor, you'll be able to assign them to scenes and set their availability.</p>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

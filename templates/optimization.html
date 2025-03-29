@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block title %}Schedule Optimization | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>Schedule Optimization</h2>
+            <p class="text-muted">Create optimized production schedules using advanced algorithms</p>
+        </div>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-warning">
+            <h5>No active project!</h5>
+            <p>Please select a project to continue.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% elif not scenes %}
+        <div class="alert alert-warning">
+            <h5>No scenes found!</h5>
+            <p>Please upload a screenplay first to extract scene information.</p>
+            <a href="{{ url_for('screenplay_upload') }}" class="btn btn-primary">
+                <i class="fas fa-upload me-1"></i> Upload Screenplay
+            </a>
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Optimization Parameters</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert-container"></div>
+                        
+                        <form id="optimization-form" action="{{ url_for('api_optimize_schedule') }}" method="post">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Schedule Name</label>
+                                <input type="text" class="form-control" id="name" name="name" value="Schedule {{ now.strftime('%Y-%m-%d %H:%M') }}" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="algorithm" class="form-label">Optimization Algorithm</label>
+                                <select class="form-select" id="algorithm" name="algorithm" required>
+                                    <option value="ant_colony" selected>Ant Colony Optimization (ACOBM)</option>
+                                    <option value="tabu_search">Tabu Search (TSBM)</option>
+                                    <option value="particle_swarm">Particle Swarm Optimization (PSOBM)</option>
+                                </select>
+                                <div id="algorithm-description" class="form-text">
+                                    <strong>Ant Colony Optimization</strong>: Simulates ant behavior to find the optimal path through a graph. Best for complex scheduling with many constraints.
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="start_date" class="form-label">Start Date</label>
+                                    <input type="date" class="form-control" id="start_date" name="start_date" value="{{ start_date.strftime('%Y-%m-%d') }}" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="end_date" class="form-label">End Date (Optional)</label>
+                                    <input type="date" class="form-control" id="end_date" name="end_date" value="{{ end_date.strftime('%Y-%m-%d') }}">
+                                </div>
+                            </div>
+                            
+                            <h5 class="mt-4 mb-3">Cost Factors</h5>
+                            <p class="text-muted mb-3">Adjust the weight of different cost factors in the optimization process.</p>
+                            
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="cost-factor-container">
+                                        <label for="actor-cost-factor" class="form-label d-flex justify-content-between">
+                                            Actor Cost
+                                            <span class="cost-factor-value" id="actor-cost-factor-value">5</span>
+                                        </label>
+                                        <input type="range" class="form-range cost-factor-slider" id="actor-cost-factor" name="actor_cost_factor" min="1" max="10" value="5">
+                                        <div class="d-flex justify-content-between">
+                                            <small>Lower</small>
+                                            <small>Higher</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="cost-factor-container">
+                                        <label for="location-cost-factor" class="form-label d-flex justify-content-between">
+                                            Location Cost
+                                            <span class="cost-factor-value" id="location-cost-factor-value">5</span>
+                                        </label>
+                                        <input type="range" class="form-range cost-factor-slider" id="location-cost-factor" name="location_cost_factor" min="1" max="10" value="5">
+                                        <div class="d-flex justify-content-between">
+                                            <small>Lower</small>
+                                            <small>Higher</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="cost-factor-container">
+                                        <label for="travel-cost-factor" class="form-label d-flex justify-content-between">
+                                            Travel Cost
+                                            <span class="cost-factor-value" id="travel-cost-factor-value">5</span>
+                                        </label>
+                                        <input type="range" class="form-range cost-factor-slider" id="travel-cost-factor" name="travel_cost_factor" min="1" max="10" value="5">
+                                        <div class="d-flex justify-content-between">
+                                            <small>Lower</small>
+                                            <small>Higher</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="cost-factor-container">
+                                        <label for="duration-cost-factor" class="form-label d-flex justify-content-between">
+                                            Duration Penalty
+                                            <span class="cost-factor-value" id="duration-cost-factor-value">5</span>
+                                        </label>
+                                        <input type="range" class="form-range cost-factor-slider" id="duration-cost-factor" name="duration_cost_factor" min="1" max="10" value="5">
+                                        <div class="d-flex justify-content-between">
+                                            <small>Lower</small>
+                                            <small>Higher</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <button type="submit" class="btn btn-primary" id="optimize-btn">
+                                    <i class="fas fa-magic me-1"></i> Generate Optimized Schedule
+                                </button>
+                            </div>
+                        </form>
+                        
+                        <div id="loading-indicator" class="d-none loading-indicator">
+                            <div class="spinner-border loading-spinner text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="mt-3 text-center">
+                                <p>Optimizing schedule. This may take a few minutes...</p>
+                            </div>
+                        </div>
+                        
+                        <div id="optimization-result" class="mt-4"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Project Stats</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="mb-3 text-center">
+                                    <div class="fs-2 fw-bold text-primary">{{ scenes|length }}</div>
+                                    <div class="text-muted">Total Scenes</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-3 text-center">
+                                    <div class="fs-2 fw-bold text-success">{{ actors|length }}</div>
+                                    <div class="text-muted">Actors</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-3 text-center">
+                                    <div class="fs-2 fw-bold text-warning">{{ locations|length }}</div>
+                                    <div class="text-muted">Locations</div>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-3 text-center">
+                                    {% set total_duration = 0 %}
+                                    {% for scene in scenes %}
+                                        {% set total_duration = total_duration + scene.estimated_duration %}
+                                    {% endfor %}
+                                    <div class="fs-2 fw-bold text-info">{{ (total_duration / 8)|round(1) }}</div>
+                                    <div class="text-muted">Est. Days</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Algorithm Comparison</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="accordion" id="accordionAlgorithms">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="headingOne">
+                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                                        Ant Colony Optimization (ACOBM)
+                                    </button>
+                                </h2>
+                                <div id="collapseOne" class="accordion-collapse collapse show" aria-labelledby="headingOne" data-bs-parent="#accordionAlgorithms">
+                                    <div class="accordion-body">
+                                        <p class="small">Inspired by ant foraging behavior. Ants lay pheromone trails, and over time, shorter paths accumulate more pheromone.</p>
+                                        <div class="text-muted small">
+                                            <div class="d-flex justify-content-between">
+                                                <span>Complexity:</span>
+                                                <span>High</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <span>Run time:</span>
+                                                <span>Medium</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <span>Best for:</span>
+                                                <span>Complex constraints</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="headingTwo">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                                        Tabu Search (TSBM)
+                                    </button>
+                                </h2>
+                                <div id="collapseTwo" class="accordion-collapse collapse" aria-labelledby="headingTwo" data-bs-parent="#accordionAlgorithms">
+                                    <div class="accordion-body">
+                                        <p class="small">Uses memory structures to avoid revisiting recent solutions, allowing exploration of the solution space.</p>
+                                        <div class="text-muted small">
+                                            <div class="d-flex justify-content-between">
+                                                <span>Complexity:</span>
+                                                <span>Medium</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <span>Run time:</span>
+                                                <span>Fast</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <span>Best for:</span>
+                                                <span>Avoiding local minima</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="headingThree">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="false" aria-controls="collapseThree">
+                                        Particle Swarm (PSOBM)
+                                    </button>
+                                </h2>
+                                <div id="collapseThree" class="accordion-collapse collapse" aria-labelledby="headingThree" data-bs-parent="#accordionAlgorithms">
+                                    <div class="accordion-body">
+                                        <p class="small">Inspired by bird flocking or fish schooling, where particles (solutions) move through the solution space.</p>
+                                        <div class="text-muted small">
+                                            <div class="d-flex justify-content-between">
+                                                <span>Complexity:</span>
+                                                <span>Medium</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <span>Run time:</span>
+                                                <span>Fast</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between">
+                                                <span>Best for:</span>
+                                                <span>Balanced approach</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Previous Schedules</h5>
+                    </div>
+                    <div class="card-body">
+                        {% set recent_schedules = Schedule.query.filter_by(project_id=current_project.id).order_by(Schedule.created_at.desc()).limit(3).all() %}
+                        
+                        {% if recent_schedules %}
+                            <div class="list-group">
+                                {% for schedule in recent_schedules %}
+                                    <a href="{{ url_for('schedule_view', schedule_id=schedule.id) }}" class="list-group-item list-group-item-action">
+                                        <div class="d-flex w-100 justify-content-between">
+                                            <h6 class="mb-1">{{ schedule.name }}</h6>
+                                            <small>{{ schedule.created_at.strftime('%Y-%m-%d') }}</small>
+                                        </div>
+                                        <p class="mb-1 small">
+                                            {{ schedule.algorithm_used }} | ${{ schedule.total_cost|round(2) }} | {{ schedule.total_duration }} days
+                                        </p>
+                                    </a>
+                                {% endfor %}
+                            </div>
+                            
+                            {% if Schedule.query.filter_by(project_id=current_project.id).count() > 3 %}
+                                <div class="text-center mt-3">
+                                    <a href="#" class="btn btn-sm btn-outline-primary">View All Schedules</a>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <p class="text-muted mb-0">No schedules have been created yet.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/optimization.js') }}"></script>
+{% endblock %}

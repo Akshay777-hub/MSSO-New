@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}
+    {% if location %}Edit Location{% else %}Add Location{% endif %} | Film Production Scheduling System
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h2>{% if location %}Edit Location: {{ location.name }}{% else %}Add New Location{% endif %}</h2>
+            <p class="text-muted">{% if location %}Update location information{% else %}Add a new filming location to the project{% endif %}</p>
+        </div>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-warning">
+            <h5>No active project!</h5>
+            <p>Please select a project to continue.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">{% if location %}Edit Location Details{% else %}Location Details{% endif %}</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="{{ url_for('edit_location', location_id=location.id if location else 0) }}">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Location Name</label>
+                                <input type="text" class="form-control" id="name" name="name" value="{{ location.name if location else '' }}" required>
+                                <div class="form-text">Name of the location as it appears in the screenplay</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="address" class="form-label">Address</label>
+                                <textarea class="form-control" id="address" name="address" rows="3">{{ location.address if location else '' }}</textarea>
+                                <div class="form-text">Full address or description of the location</div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="cost_per_day" class="form-label">Cost Per Day ($)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">$</span>
+                                    <input type="number" class="form-control" id="cost_per_day" name="cost_per_day" step="0.01" min="0" value="{{ location.cost_per_day if location else '0' }}">
+                                </div>
+                                <div class="form-text">Daily cost for using this location</div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mt-4">
+                                <a href="{{ url_for('locations_list') }}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i> Back to Locations
+                                </a>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-save me-1"></i> {% if location %}Update{% else %}Add{% endif %} Location
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                {% if location %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Scenes at this Location</h5>
+                        </div>
+                        <div class="card-body">
+                            {% set location_scenes = location.scenes.all() %}
+                            {% if location_scenes %}
+                                <ul class="list-group">
+                                    {% for scene in location_scenes %}
+                                        <li class="list-group-item">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <strong>Scene {{ scene.scene_number }}</strong>
+                                                <span class="badge bg-primary">{{ scene.int_ext }}</span>
+                                            </div>
+                                            <div class="text-muted small">{{ scene.time_of_day }}</div>
+                                            {% if scene.description %}
+                                                <div class="scene-description mt-1">
+                                                    {{ scene.description|truncate(100) }}
+                                                </div>
+                                            {% endif %}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <div class="alert alert-info">
+                                    <p class="mb-0">No scenes are set at this location.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Availability</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Manage when this location is available for shooting:</p>
+                            <a href="{{ url_for('location_availability') }}?location_id={{ location.id }}" class="btn btn-primary w-100">
+                                <i class="fas fa-calendar-check me-1"></i> Set Availability
+                            </a>
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Instructions</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>Adding locations manually allows you to:</p>
+                            <ul>
+                                <li>Include filming locations not detected in the screenplay</li>
+                                <li>Specify alternative or backup locations</li>
+                                <li>Add proper address information for logistics planning</li>
+                                <li>Define accurate daily costs for budget calculations</li>
+                            </ul>
+                            <p class="mb-0">After adding a location, you'll be able to assign scenes to it and set its availability.</p>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

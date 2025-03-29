@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Screenplay | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1>Upload Screenplay</h1>
+            <p class="text-muted">Upload your screenplay PDF to extract scenes, actors, and locations</p>
+        </div>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-warning">
+            <h5>No active project!</h5>
+            <p>Please select a project to continue.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Upload Screenplay PDF</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="{{ url_for('screenplay_upload') }}" enctype="multipart/form-data">
+                            <div class="upload-container" id="upload-area">
+                                <div class="upload-icon">
+                                    <i class="fas fa-file-pdf"></i>
+                                </div>
+                                <h4>Drag & Drop Your Screenplay</h4>
+                                <p class="text-muted mb-4">or click to browse</p>
+                                
+                                <div class="mb-3">
+                                    <input type="file" class="form-control" id="screenplay" name="screenplay" accept=".pdf" required>
+                                </div>
+                                
+                                <div id="selected-file-info" class="d-none alert alert-info">
+                                    <i class="fas fa-file-pdf me-2"></i>
+                                    <span id="file-name"></span>
+                                    <button type="button" class="btn-close float-end" id="clear-file"></button>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-upload me-1"></i> Upload & Process
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                {% if current_project.screenplay_path %}
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">Current Screenplay</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-file-pdf fa-2x text-danger me-3"></i>
+                                <div>
+                                    <h6 class="mb-1">{{ current_project.screenplay_path.split('/')[-1] }}</h6>
+                                    <p class="mb-0 text-muted small">Uploaded on {{ current_project.created_at.strftime('%Y-%m-%d') }}</p>
+                                </div>
+                                <a href="{{ url_for('uploaded_file', filename=current_project.screenplay_path.split('/')[-1]) }}" class="btn btn-sm btn-outline-primary ms-auto" target="_blank">
+                                    <i class="fas fa-eye me-1"></i> View
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Instructions</h5>
+                    </div>
+                    <div class="card-body">
+                        <ol class="mb-0">
+                            <li class="mb-2">
+                                <strong>Format Requirements:</strong> 
+                                <p class="text-muted small">Ensure your screenplay is in PDF format and follows standard screenplay formatting.</p>
+                            </li>
+                            <li class="mb-2">
+                                <strong>Processing:</strong> 
+                                <p class="text-muted small">Our NLP system will extract scenes, actors, locations, and constraints from your screenplay.</p>
+                            </li>
+                            <li class="mb-2">
+                                <strong>Review:</strong> 
+                                <p class="text-muted small">After processing, you'll be able to review and edit the extracted information.</p>
+                            </li>
+                            <li class="mb-2">
+                                <strong>Completion:</strong> 
+                                <p class="text-muted small">After reviewing, you can proceed to set actor and location availability for scheduling.</p>
+                            </li>
+                        </ol>
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Screenplay Format Tips</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <h6 class="text-primary">Scene Headers</h6>
+                            <p class="text-muted small">Scene headers should follow the standard format: INT./EXT. LOCATION - TIME OF DAY</p>
+                            <div class="bg-dark p-2 rounded">
+                                <code>EXT. BEACH - DAY</code>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <h6 class="text-primary">Character Names</h6>
+                            <p class="text-muted small">Character names should be in ALL CAPS when they speak.</p>
+                            <div class="bg-dark p-2 rounded">
+                                <code>JOHN<br>
+                                Hello, how are you?</code>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <h6 class="text-primary">Need a Sample?</h6>
+                            <p class="text-muted small">Download our sample screenplay to see the recommended format:</p>
+                            <a href="#" class="btn btn-sm btn-outline-secondary">
+                                <i class="fas fa-download me-1"></i> Sample Screenplay
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const uploadArea = document.getElementById('upload-area');
+    const fileInput = document.getElementById('screenplay');
+    const fileInfo = document.getElementById('selected-file-info');
+    const fileName = document.getElementById('file-name');
+    const clearFileBtn = document.getElementById('clear-file');
+    
+    // File input change event
+    if (fileInput) {
+        fileInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                showFileInfo(this.files[0]);
+            } else {
+                hideFileInfo();
+            }
+        });
+    }
+    
+    // Clear file button
+    if (clearFileBtn) {
+        clearFileBtn.addEventListener('click', function() {
+            fileInput.value = '';
+            hideFileInfo();
+        });
+    }
+    
+    // Drag and drop functionality
+    if (uploadArea) {
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+        
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, highlight, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, unhighlight, false);
+        });
+        
+        function highlight() {
+            uploadArea.classList.add('dragover');
+        }
+        
+        function unhighlight() {
+            uploadArea.classList.remove('dragover');
+        }
+        
+        uploadArea.addEventListener('drop', handleDrop, false);
+        
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            
+            if (files.length > 0) {
+                fileInput.files = files;
+                showFileInfo(files[0]);
+            }
+        }
+    }
+    
+    // Helper functions
+    function showFileInfo(file) {
+        fileName.textContent = file.name;
+        fileInfo.classList.remove('d-none');
+    }
+    
+    function hideFileInfo() {
+        fileInfo.classList.add('d-none');
+    }
+});
+</script>
+{% endblock %}

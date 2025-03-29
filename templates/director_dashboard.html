@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Director Dashboard | Film Production Scheduling System{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="dashboard-header">
+        <h1 class="mb-0">Director Dashboard</h1>
+        <p class="text-muted">Manage and approve production schedules</p>
+    </div>
+    
+    {% if not current_project %}
+        <div class="alert alert-info">
+            <h5>Welcome to the Film Production Scheduling System!</h5>
+            <p>To get started, please create a new project or select an existing one.</p>
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#create-project-modal">
+                <i class="fas fa-plus me-1"></i> Create New Project
+            </button>
+        </div>
+    {% else %}
+        <div class="row dashboard-stats">
+            <div class="col-md-4">
+                <div class="card stat-card bg-primary-subtle">
+                    <div class="card-body">
+                        <div class="stat-value">{{ schedules|length }}</div>
+                        <div class="stat-label">Schedules</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card bg-success-subtle">
+                    <div class="stat-value">{{ notifications|length }}</div>
+                    <div class="stat-label">Notifications</div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card stat-card bg-warning-subtle">
+                    <div class="stat-value">
+                        {% if schedules %}
+                            {% set latest_schedule = schedules|sort(attribute='created_at', reverse=True)|first %}
+                            {{ latest_schedule.created_at.strftime('%Y-%m-%d') }}
+                        {% else %}
+                            None
+                        {% endif %}
+                    </div>
+                    <div class="stat-label">Latest Schedule</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="row">
+            <div class="col-lg-8">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Production Schedules</h5>
+                        <div class="btn-group">
+                            <button type="button" class="btn btn-sm btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-sort me-1"></i> Sort By
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="#" data-sort="newest">Newest First</a></li>
+                                <li><a class="dropdown-item" href="#" data-sort="oldest">Oldest First</a></li>
+                                <li><a class="dropdown-item" href="#" data-sort="cost-high">Cost: High to Low</a></li>
+                                <li><a class="dropdown-item" href="#" data-sort="cost-low">Cost: Low to High</a></li>
+                                <li><a class="dropdown-item" href="#" data-sort="duration">Duration</a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        {% if schedules %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Name</th>
+                                            <th>Algorithm</th>
+                                            <th>Duration</th>
+                                            <th>Cost</th>
+                                            <th>Created</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for schedule in schedules %}
+                                            <tr>
+                                                <td>{{ schedule.name }}</td>
+                                                <td>{{ schedule.algorithm_used }}</td>
+                                                <td>{{ schedule.total_duration }} days</td>
+                                                <td>${{ schedule.total_cost|round(2) }}</td>
+                                                <td>{{ schedule.created_at.strftime('%Y-%m-%d') }}</td>
+                                                <td>
+                                                    <a href="{{ url_for('schedule_view', schedule_id=schedule.id) }}" class="btn btn-sm btn-primary">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <form action="{{ url_for('approve_schedule', schedule_id=schedule.id) }}" method="post" class="d-inline" id="approve-schedule-form">
+                                                        <button type="submit" class="btn btn-sm btn-success">
+                                                            <i class="fas fa-check"></i> Approve
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                No schedules available yet. The Production Manager will create schedules once the screenplay has been processed.
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Project Overview</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6>Project Details</h6>
+                                <p><strong>Name:</strong> {{ current_project.name }}</p>
+                                <p><strong>Description:</strong> {{ current_project.description or 'No description provided' }}</p>
+                                <p><strong>Created:</strong> {{ current_project.created_at.strftime('%Y-%m-%d') }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <h6>Team Members</h6>
+                                <ul class="list-group">
+                                    {% for access in ProjectAccess.query.filter_by(project_id=current_project.id).all() %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            {{ User.query.get(access.user_id).username }}
+                                            <span class="badge bg-primary">{{ access.role|replace('_', ' ')|title }}</span>
+                                        </li>
+                                    {% else %}
+                                        <li class="list-group-item">No team members yet</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-4">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Notifications</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="notification-list">
+                            {% if notifications %}
+                                {% for notification in notifications %}
+                                    <div class="notification-item {% if not notification.read %}unread{% endif %}" data-notification-id="{{ notification.id }}">
+                                        <div class="notification-content">
+                                            <div class="notification-message">{{ notification.message }}</div>
+                                            <div class="notification-time">{{ notification.created_at.strftime('%Y-%m-%d %H:%M') }}</div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="notification-empty">No notifications</div>
+                            {% endif %}
+                        </div>
+                        {% if notifications %}
+                            <div class="mt-3 text-center">
+                                <a href="{{ url_for('view_notifications') }}" class="btn btn-sm btn-primary">View All Notifications</a>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Invite Team Members</h5>
+                    </div>
+                    <div class="card-body">
+                        <form action="{{ url_for('invite_user') }}" method="post">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="username" name="username" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="role" class="form-label">Role</label>
+                                <select class="form-select" id="role" name="role" required>
+                                    <option value="" selected disabled>Select a role</option>
+                                    <option value="director">Director</option>
+                                    <option value="production_manager">Production Manager</option>
+                                    <option value="scheduling_coordinator">Scheduling Coordinator</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Invite User</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/schedule.js') }}"></script>
+{% endblock %}
