@@ -44,47 +44,41 @@
                                     </div>
                                     
                                     {% for scheduled_scene in date_scenes %}
-                                        {% set scene = Scene.query.get(scheduled_scene.scene_id) %}
-                                        <div class="card scene-card mb-3">
-                                            <div class="card-header scene-header">
-                                                <span class="scene-number">Scene {{ scene.scene_number }}</span>
-                                                <span class="scene-time">
-                                                    {% if scheduled_scene.start_time and scheduled_scene.end_time %}
-                                                        {{ scheduled_scene.start_time.strftime('%H:%M') }} - {{ scheduled_scene.end_time.strftime('%H:%M') }}
-                                                    {% else %}
-                                                        Time not set
+                                        {% set scene = scene_data.get(scheduled_scene.scene_id) %}
+                                        {% if scene %}
+                                            <div class="card scene-card mb-3">
+                                                <div class="card-header scene-header">
+                                                    <span class="scene-number">Scene {{ scene.scene_number }}</span>
+                                                    <span class="scene-time">
+                                                        {% if scheduled_scene.start_time and scheduled_scene.end_time %}
+                                                            {{ scheduled_scene.start_time.strftime('%H:%M') }} - {{ scheduled_scene.end_time.strftime('%H:%M') }}
+                                                        {% else %}
+                                                            Time not set
+                                                        {% endif %}
+                                                    </span>
+                                                </div>
+                                                <div class="card-body">
+                                                    {% if scene.location_id and location_data.get(scene.location_id) %}
+                                                        <div class="scene-location">
+                                                            <i class="fas fa-map-marker-alt me-1"></i>
+                                                            {{ scene.int_ext }} {{ location_data.get(scene.location_id).name }} - {{ scene.time_of_day }}
+                                                        </div>
                                                     {% endif %}
-                                                </span>
-                                            </div>
-                                            <div class="card-body">
-                                                {% if scene.location %}
-                                                    <div class="scene-location">
-                                                        <i class="fas fa-map-marker-alt me-1"></i>
-                                                        {{ scene.int_ext }} {{ scene.location.name }} - {{ scene.time_of_day }}
+                                                    
+                                                    <p class="mb-2">{{ scene.description|truncate(200) }}</p>
+                                                    
+                                                    <div class="scene-actors">
+                                                        <strong>Cast:</strong>
+                                                        <span class="text-muted">Cast info available in detailed view</span>
+                                                    </div>
+                                                </div>
+                                                {% if scheduled_scene.estimated_cost %}
+                                                    <div class="card-footer text-end">
+                                                        <small class="text-muted">Estimated cost: ${{ scheduled_scene.estimated_cost|round(2) }}</small>
                                                     </div>
                                                 {% endif %}
-                                                
-                                                <p class="mb-2">{{ scene.description|truncate(200) }}</p>
-                                                
-                                                <div class="scene-actors">
-                                                    <strong>Cast:</strong>
-                                                    {% set actor_relationships = ActorScene.query.filter_by(scene_id=scene.id).all() %}
-                                                    {% if actor_relationships %}
-                                                        {% for rel in actor_relationships %}
-                                                            {% set actor = Actor.query.get(rel.actor_id) %}
-                                                            <span class="badge bg-secondary me-1">{{ actor.name }}</span>
-                                                        {% endfor %}
-                                                    {% else %}
-                                                        <span class="text-muted">No cast assigned</span>
-                                                    {% endif %}
-                                                </div>
                                             </div>
-                                            {% if scheduled_scene.estimated_cost %}
-                                                <div class="card-footer text-end">
-                                                    <small class="text-muted">Estimated cost: ${{ scheduled_scene.estimated_cost|round(2) }}</small>
-                                                </div>
-                                            {% endif %}
-                                        </div>
+                                        {% endif %}
                                     {% endfor %}
                                 </div>
                             {% endfor %}
@@ -164,26 +158,8 @@
                     <h5 class="mb-0">Cast & Crew Call Times</h5>
                 </div>
                 <div class="card-body">
-                    {% if scenes_by_date and scenes_by_date.keys()|list|length > 0 %}
-                        {% set first_date = scenes_by_date.keys()|list|first %}
-                        {% set first_day_scenes = scenes_by_date.get(first_date, []) %}
-                        
+                    {% if first_date %}
                         <h6 class="mb-3">{{ first_date }} Call Sheet</h6>
-                        
-                        {% set actor_call_times = {} %}
-                        {% for scheduled_scene in first_day_scenes %}
-                            {% set scene = Scene.query.get(scheduled_scene.scene_id) %}
-                            {% set actor_relationships = ActorScene.query.filter_by(scene_id=scene.id).all() %}
-                            
-                            {% for rel in actor_relationships %}
-                                {% set actor = Actor.query.get(rel.actor_id) %}
-                                {% if actor.name not in actor_call_times or scheduled_scene.start_time < actor_call_times[actor.name] %}
-                                    {% if scheduled_scene.start_time %}
-                                        {% set _ = actor_call_times.update({actor.name: scheduled_scene.start_time}) %}
-                                    {% endif %}
-                                {% endif %}
-                            {% endfor %}
-                        {% endfor %}
                         
                         {% if actor_call_times %}
                             <div class="table-responsive">

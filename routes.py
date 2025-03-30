@@ -936,16 +936,53 @@ def register_routes(app):
                 scenes_by_date[date_str] = []
             
             scenes_by_date[date_str].append(scheduled_scene)
+            
+        # Prepare actor call times for first date if available
+        actor_call_times = {}
+        first_date = None
+        first_day_scenes = []
+        
+        if scenes_by_date and len(scenes_by_date.keys()) > 0:
+            date_keys = list(scenes_by_date.keys())
+            date_keys.sort()  # Sort chronologically
+            first_date = date_keys[0]
+            first_day_scenes = scenes_by_date.get(first_date, [])
+            
+            # Calculate actor call times
+            for scheduled_scene in first_day_scenes:
+                scene = Scene.query.get(scheduled_scene.scene_id)
+                if scene:
+                    actor_relationships = ActorScene.query.filter_by(scene_id=scene.id).all()
+                    
+                    for rel in actor_relationships:
+                        actor = Actor.query.get(rel.actor_id)
+                        if actor and scheduled_scene.start_time:
+                            if actor.name not in actor_call_times or scheduled_scene.start_time < actor_call_times[actor.name]:
+                                actor_call_times[actor.name] = scheduled_scene.start_time
+        
+        # Preload scene and location data for each scheduled scene
+        scene_data = {}
+        location_data = {}
+        
+        for date_str, day_scenes in scenes_by_date.items():
+            for scheduled_scene in day_scenes:
+                scene = Scene.query.get(scheduled_scene.scene_id)
+                if scene:
+                    scene_data[scene.id] = scene
+                    if scene.location_id:
+                        location = Location.query.get(scene.location_id)
+                        if location:
+                            location_data[location.id] = location
         
         return render_template(
             'schedule_view.html',
             schedule=schedule,
             current_project=current_project,
             scenes_by_date=scenes_by_date,
-            Scene=Scene,
-            Location=Location,
-            Actor=Actor,
-            ActorScene=ActorScene
+            actor_call_times=actor_call_times,
+            first_date=first_date,
+            scene_data=scene_data,
+            location_data=location_data
         )
     
     @app.route('/schedule/<int:schedule_id>/approve', methods=['POST'])
