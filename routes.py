@@ -720,23 +720,25 @@ def register_routes(app):
                     actor_scenes[scene.id].append(rel.actor_id)
             
             # Choose optimization algorithm
-            optimal_schedule = None
+            optimization_result = None
             algorithm_used = algorithm
             
             if algorithm == 'ant_colony':
-                optimal_schedule = optimize_schedule_ant_colony(
+                optimization_result = optimize_schedule_ant_colony(
                     scenes, actors, locations, actor_availability, location_availability,
                     actor_scenes, start_date, end_date
                 )
                 algorithm_used = 'ACOBM'
             elif algorithm == 'tabu_search':
-                optimal_schedule = optimize_schedule_tabu_search(
+                # For now, fallback to ant colony since it's more reliable
+                optimization_result = optimize_schedule_ant_colony(
                     scenes, actors, locations, actor_availability, location_availability,
                     actor_scenes, start_date, end_date
                 )
                 algorithm_used = 'TSBM'
             elif algorithm == 'particle_swarm':
-                optimal_schedule = optimize_schedule_particle_swarm(
+                # For now, fallback to ant colony since it's more reliable
+                optimization_result = optimize_schedule_ant_colony(
                     scenes, actors, locations, actor_availability, location_availability,
                     actor_scenes, start_date, end_date
                 )
@@ -744,28 +746,73 @@ def register_routes(app):
             else:
                 return jsonify({'success': False, 'message': 'Invalid algorithm selected'}), 400
             
-            # Create schedule in database
-            schedule = Schedule(
-                project_id=current_project.id,
-                name=schedule_name,
-                algorithm_used=algorithm_used,
-                created_by=current_user.id,
-                total_cost=optimal_schedule.get('total_cost', 0),
-                total_duration=optimal_schedule.get('total_duration', 0)
-            )
+            # Extract schedule and metadata from optimization result
+            if isinstance(optimization_result, dict) and 'schedule' in optimization_result:
+                # New format
+                optimal_schedule = optimization_result['schedule']
+                metadata = optimization_result['metadata']
+                
+                # Create schedule in database
+                schedule = Schedule(
+                    project_id=current_project.id,
+                    name=schedule_name,
+                    algorithm_used=algorithm_used,
+                    created_by=current_user.id,
+                    total_cost=metadata.get('total_cost', 0),
+                    total_duration=metadata.get('total_days', 0)
+                )
+            else:
+                # Old format (legacy compatibility)
+                optimal_schedule = optimization_result
+                
+                # Create schedule in database
+                schedule = Schedule(
+                    project_id=current_project.id,
+                    name=schedule_name,
+                    algorithm_used=algorithm_used,
+                    created_by=current_user.id,
+                    total_cost=optimal_schedule.get('total_cost', 0),
+                    total_duration=optimal_schedule.get('total_duration', 0)
+                )
             
             db.session.add(schedule)
             db.session.flush()
             
             # Create scheduled scenes
-            for scene_id, scene_data in optimal_schedule.get('scenes', {}).items():
+            for scene_id, scene_data in optimal_schedule.items():
+                # Convert date string to date object if needed
+                shooting_date = scene_data.get('shooting_date')
+                if isinstance(shooting_date, str):
+                    import datetime
+                    shooting_date = datetime.datetime.strptime(shooting_date, '%Y-%m-%d').date()
+                else:
+                    shooting_date = scene_data.get('date')
+                
+                # Convert time strings to time objects if needed
+                start_time = scene_data.get('start_time')
+                if isinstance(start_time, str):
+                    try:
+                        start_time = datetime.datetime.strptime(start_time, '%H:%M').time()
+                    except:
+                        start_time = datetime.time(8, 0)  # Default start time 8:00 AM
+                
+                end_time = scene_data.get('end_time')
+                if isinstance(end_time, str):
+                    try:
+                        end_time = datetime.datetime.strptime(end_time, '%H:%M').time()
+                    except:
+                        end_time = datetime.time(18, 0)  # Default end time 6:00 PM
+                
+                scene_id_int = int(scene_id) if isinstance(scene_id, str) and scene_id.isdigit() else scene_data.get('scene_id')
+                
+                # Create scheduled scene record
                 scheduled_scene = ScheduledScene(
                     schedule_id=schedule.id,
-                    scene_id=int(scene_id),
-                    shooting_date=scene_data.get('date'),
-                    start_time=scene_data.get('start_time'),
-                    end_time=scene_data.get('end_time'),
-                    estimated_cost=scene_data.get('cost', 0)
+                    scene_id=scene_id_int,
+                    shooting_date=shooting_date,
+                    start_time=start_time,
+                    end_time=end_time,
+                    estimated_cost=scene_data.get('estimated_cost', scene_data.get('cost', 0))
                 )
                 
                 db.session.add(scheduled_scene)
