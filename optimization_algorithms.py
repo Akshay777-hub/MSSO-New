@@ -5,6 +5,7 @@ import numpy as np
 import logging
 from itertools import permutations
 from collections import defaultdict
+from utils_json import convert_datetime_to_strings
 
 def optimize_schedule_tabu_search(scenes, actors, locations, actor_availability, location_availability, actor_scenes, start_date, end_date=None):
     """
@@ -727,18 +728,22 @@ def format_solution(solution, scenes, actors, locations):
             total_cost += schedule_info.get('cost', 0)
             total_duration += scene.estimated_duration if scene.estimated_duration else 0
         
-        return {
+        result = {
             'scenes': formatted_solution,
             'total_cost': total_cost,
             'total_duration': max(1, round(total_duration / 8.0))  # Convert hours to days (8-hour days)
         }
+        
+        # Convert all datetime objects to strings
+        return convert_datetime_to_strings(result)
     except Exception as e:
         logging.error(f"Error formatting solution: {str(e)}")
-        return {
+        error_result = {
             'scenes': {},
             'total_cost': 0,
             'total_duration': 0
         }
+        return convert_datetime_to_strings(error_result)
             for scene in scenes:
                 actor_scene_relations = [as_rel for as_rel in scene.actor_scenes]
                 actor_scenes[scene.id] = [rel.actor_id for rel in actor_scene_relations]

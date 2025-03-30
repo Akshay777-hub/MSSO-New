@@ -4,6 +4,7 @@ import copy
 import logging
 from itertools import permutations
 from collections import defaultdict
+from utils_json import convert_datetime_to_strings
 
 try:
     import numpy as np
@@ -249,11 +250,12 @@ def format_solution(solution, scenes, actors, locations):
         # Safety check for empty or invalid solution
         if not solution:
             logging.warning("Empty solution being formatted")
-            return {
+            error_result = {
                 'scenes': {},
                 'total_cost': 0,
                 'total_duration': 0
             }
+            return convert_datetime_to_strings(error_result)
             
         scene_dict = {scene.id: scene for scene in scenes}
         
@@ -295,18 +297,20 @@ def format_solution(solution, scenes, actors, locations):
             total_cost += schedule_info.get('cost', 0)
             total_duration += scene.estimated_duration if scene.estimated_duration else 0
         
-        return {
+        result = {
             'scenes': formatted_solution,
             'total_cost': total_cost,
             'total_duration': max(1, round(total_duration / 8.0))  # Convert hours to days (8-hour days)
         }
+        return convert_datetime_to_strings(result)
     except Exception as e:
         logging.error(f"Error formatting solution: {str(e)}")
-        return {
+        error_result = {
             'scenes': {},
             'total_cost': 0,
             'total_duration': 0
         }
+        return convert_datetime_to_strings(error_result)
 
 def optimize_schedule_ant_colony(scenes, actors, locations, actor_availability, location_availability, actor_scenes, start_date, end_date=None):
     """
@@ -525,7 +529,7 @@ def optimize_schedule_ant_colony(scenes, actors, locations, actor_availability, 
             }
         }
         
-        return result
+        return convert_datetime_to_strings(result)
     
     except Exception as e:
         logging.error(f"Error in schedule optimization: {str(e)}", exc_info=True)
@@ -582,7 +586,7 @@ def optimize_schedule_ant_colony(scenes, actors, locations, actor_availability, 
             fallback_days = min(len(scenes), len(fallback_dates))
             
             # Return fallback schedule
-            return {
+            fallback_result = {
                 'schedule': fallback_schedule,
                 'metadata': {
                     'total_cost': total_cost,
@@ -593,12 +597,13 @@ def optimize_schedule_ant_colony(scenes, actors, locations, actor_availability, 
                     'algorithm': 'Emergency Fallback Scheduler'
                 }
             }
+            return convert_datetime_to_strings(fallback_result)
             
         except Exception as fallback_error:
             logging.error(f"Emergency fallback also failed: {str(fallback_error)}", exc_info=True)
             
             # Return absolute minimum valid response
-            return {
+            minimal_result = {
                 'schedule': {
                     '0': {
                         'scene_id': 0,
@@ -627,3 +632,4 @@ def optimize_schedule_ant_colony(scenes, actors, locations, actor_availability, 
                     'algorithm': 'Minimal Fallback'
                 }
             }
+            return convert_datetime_to_strings(minimal_result)

@@ -871,11 +871,24 @@ def register_routes(app):
                     'algorithm': algorithm_used
                 }
             
-            return jsonify(response_data)
+            # Use our custom JSON encoder to manually serialize the response
+            from json_encoder import CustomJSONEncoder
+            import json
+            json_str = json.dumps(response_data, cls=CustomJSONEncoder)
+            return app.response_class(
+                response=json_str,
+                status=200,
+                mimetype='application/json'
+            )
         except Exception as e:
             db.session.rollback()
             logging.error(f"Schedule optimization error: {e}", exc_info=True)
-            return jsonify({'success': False, 'message': str(e)}), 500
+            error_response = json.dumps({'success': False, 'message': str(e)}, cls=CustomJSONEncoder)
+            return app.response_class(
+                response=error_response, 
+                status=500,
+                mimetype='application/json'
+            )
     
     @app.route('/schedule/<int:schedule_id>')
     @login_required

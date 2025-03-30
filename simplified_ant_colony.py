@@ -1,3 +1,8 @@
+import datetime
+import random
+import logging
+from utils_json import convert_datetime_to_strings
+
 def optimize_schedule_ant_colony(scenes, actors, locations, actor_availability, location_availability, actor_scenes, start_date, end_date=None):
     """
     A simplified Ant Colony Optimization-Based Method for schedule optimization.
@@ -215,7 +220,7 @@ def optimize_schedule_ant_colony(scenes, actors, locations, actor_availability, 
             }
         }
         
-        return result
+        return convert_datetime_to_strings(result)
     
     except Exception as e:
         logging.error(f"Error in schedule optimization: {str(e)}", exc_info=True)
@@ -272,7 +277,7 @@ def optimize_schedule_ant_colony(scenes, actors, locations, actor_availability, 
             fallback_days = min(len(scenes), len(fallback_dates))
             
             # Return fallback schedule
-            return {
+            fallback_result = {
                 'schedule': fallback_schedule,
                 'metadata': {
                     'total_cost': total_cost,
@@ -283,12 +288,13 @@ def optimize_schedule_ant_colony(scenes, actors, locations, actor_availability, 
                     'algorithm': 'Emergency Fallback Scheduler'
                 }
             }
+            return convert_datetime_to_strings(fallback_result)
             
         except Exception as fallback_error:
             logging.error(f"Emergency fallback also failed: {str(fallback_error)}", exc_info=True)
             
             # Return absolute minimum valid response
-            return {
+            minimal_result = {
                 'schedule': {
                     '0': {
                         'scene_id': 0,
@@ -317,3 +323,4 @@ def optimize_schedule_ant_colony(scenes, actors, locations, actor_availability, 
                     'algorithm': 'Minimal Fallback'
                 }
             }
+            return convert_datetime_to_strings(minimal_result)
