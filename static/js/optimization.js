@@ -1,64 +1,69 @@
 document.addEventListener('DOMContentLoaded', function() {
     // DOM elements
-    const algorithmCards = document.querySelectorAll('.algorithm-card');
-    const optimizeForm = document.getElementById('optimize-form');
-    const algorithmInput = document.getElementById('algorithm');
-    const startDateInput = document.getElementById('start-date');
-    const endDateInput = document.getElementById('end-date');
-    const actorWeightSlider = document.getElementById('actor-weight');
-    const locationWeightSlider = document.getElementById('location-weight');
-    const travelWeightSlider = document.getElementById('travel-weight');
-    const scheduleContainer = document.getElementById('schedule-result');
+    const optimizationForm = document.getElementById('optimization-form');
+    const algorithmSelect = document.getElementById('algorithm');
+    const startDateInput = document.getElementById('start_date');
+    const endDateInput = document.getElementById('end_date');
+    const actorCostFactorSlider = document.getElementById('actor-cost-factor');
+    const locationCostFactorSlider = document.getElementById('location-cost-factor');
+    const travelCostFactorSlider = document.getElementById('travel-cost-factor');
+    const durationCostFactorSlider = document.getElementById('duration-cost-factor');
+    const optimizationResult = document.getElementById('optimization-result');
     const loadingIndicator = document.getElementById('loading-indicator');
     
-    // Weight value displays
-    const actorWeightValue = document.getElementById('actor-weight-value');
-    const locationWeightValue = document.getElementById('location-weight-value');
-    const travelWeightValue = document.getElementById('travel-weight-value');
+    // Cost factor value displays
+    const actorCostFactorValue = document.getElementById('actor-cost-factor-value');
+    const locationCostFactorValue = document.getElementById('location-cost-factor-value');
+    const travelCostFactorValue = document.getElementById('travel-cost-factor-value');
+    const durationCostFactorValue = document.getElementById('duration-cost-factor-value');
     
-    // Update displayed weight values when sliders change
-    if (actorWeightSlider && actorWeightValue) {
-        actorWeightSlider.addEventListener('input', function() {
-            actorWeightValue.textContent = this.value;
+    // Update displayed cost factor values when sliders change
+    if (actorCostFactorSlider && actorCostFactorValue) {
+        actorCostFactorSlider.addEventListener('input', function() {
+            actorCostFactorValue.textContent = this.value;
         });
     }
     
-    if (locationWeightSlider && locationWeightValue) {
-        locationWeightSlider.addEventListener('input', function() {
-            locationWeightValue.textContent = this.value;
+    if (locationCostFactorSlider && locationCostFactorValue) {
+        locationCostFactorSlider.addEventListener('input', function() {
+            locationCostFactorValue.textContent = this.value;
         });
     }
     
-    if (travelWeightSlider && travelWeightValue) {
-        travelWeightSlider.addEventListener('input', function() {
-            travelWeightValue.textContent = this.value;
+    if (travelCostFactorSlider && travelCostFactorValue) {
+        travelCostFactorSlider.addEventListener('input', function() {
+            travelCostFactorValue.textContent = this.value;
         });
     }
     
-    // Algorithm card selection
-    if (algorithmCards.length > 0) {
-        algorithmCards.forEach(card => {
-            card.addEventListener('click', function() {
-                // Remove selected class from all cards
-                algorithmCards.forEach(c => c.classList.remove('selected'));
-                
-                // Add selected class to clicked card
-                this.classList.add('selected');
-                
-                // Update hidden input with selected algorithm
-                if (algorithmInput) {
-                    algorithmInput.value = this.getAttribute('data-algorithm');
-                }
-            });
+    if (durationCostFactorSlider && durationCostFactorValue) {
+        durationCostFactorSlider.addEventListener('input', function() {
+            durationCostFactorValue.textContent = this.value;
         });
+    }
+    
+    // Update algorithm description based on selection
+    if (algorithmSelect) {
+        const algorithmDescription = document.getElementById('algorithm-description');
         
-        // Select first algorithm by default
-        algorithmCards[0].click();
+        algorithmSelect.addEventListener('change', function() {
+            if (algorithmDescription) {
+                const selectedAlgorithm = this.value;
+                
+                if (selectedAlgorithm === 'ant_colony') {
+                    algorithmDescription.innerHTML = '<strong>Ant Colony Optimization</strong>: Simulates ant behavior to find the optimal path through a graph. Best for complex scheduling with many constraints.';
+                } else if (selectedAlgorithm === 'tabu_search') {
+                    algorithmDescription.innerHTML = '<strong>Tabu Search</strong>: Uses memory structures to avoid revisiting recent solutions. Good for avoiding local optima in complex problems.';
+                } else if (selectedAlgorithm === 'particle_swarm') {
+                    algorithmDescription.innerHTML = '<strong>Particle Swarm Optimization</strong>: Inspired by bird flocking behavior. Balanced approach that works well for many scheduling scenarios.';
+                }
+            }
+        });
     }
     
     // Form submission
-    if (optimizeForm) {
-        optimizeForm.addEventListener('submit', function(event) {
+    if (optimizationForm) {
+        optimizationForm.addEventListener('submit', function(event) {
             // Prevent default form submission
             event.preventDefault();
             
@@ -73,8 +78,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             // Clear previous results
-            if (scheduleContainer) {
-                scheduleContainer.innerHTML = '';
+            if (optimizationResult) {
+                optimizationResult.innerHTML = '';
             }
             
             // Get form data
@@ -124,7 +129,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let isValid = true;
         
         // Check if algorithm is selected
-        if (!algorithmInput || !algorithmInput.value) {
+        if (!algorithmSelect || !algorithmSelect.value) {
             showAlert('Please select an optimization algorithm.', 'warning');
             isValid = false;
         }
@@ -148,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Display schedule results
     function displaySchedule(scheduleData, metadata) {
-        if (!scheduleContainer) return;
+        if (!optimizationResult) return;
         
         // Create schedule header
         const scheduleHeader = document.createElement('div');
@@ -186,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         scheduleHeader.innerHTML = summaryHTML;
-        scheduleContainer.appendChild(scheduleHeader);
+        optimizationResult.appendChild(scheduleHeader);
         
         // Group scenes by date
         const scenesByDate = {};
@@ -281,7 +286,7 @@ document.addEventListener('DOMContentLoaded', function() {
         saveButtonContainer.innerHTML = `
             <form action="/save-schedule" method="post">
                 <input type="hidden" name="schedule_data" value='${JSON.stringify(scheduleData)}'>
-                <input type="hidden" name="algorithm" value="${algorithmInput ? algorithmInput.value : ''}">
+                <input type="hidden" name="algorithm" value="${algorithmSelect ? algorithmSelect.value : ''}">
                 <input type="hidden" name="name" value="Schedule - ${new Date().toLocaleDateString()}">
                 <button type="submit" class="btn btn-primary">
                     <i class="fas fa-save me-1"></i> Save This Schedule
@@ -290,11 +295,11 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         
         // Add elements to container
-        scheduleContainer.appendChild(scheduleTimeline);
-        scheduleContainer.appendChild(saveButtonContainer);
+        optimizationResult.appendChild(scheduleTimeline);
+        optimizationResult.appendChild(saveButtonContainer);
         
         // Scroll to results
-        scheduleContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        optimizationResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
     
     // Show alert message
@@ -314,9 +319,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (alertContainer) {
             // Insert at the beginning
             alertContainer.insertBefore(alertDiv, alertContainer.firstChild);
-        } else if (scheduleContainer) {
+        } else if (optimizationResult) {
             // Insert before schedule container
-            scheduleContainer.parentNode.insertBefore(alertDiv, scheduleContainer);
+            optimizationResult.parentNode.insertBefore(alertDiv, optimizationResult);
         }
         
         // Auto-dismiss after 5 seconds
