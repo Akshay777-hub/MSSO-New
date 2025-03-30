@@ -652,7 +652,9 @@ def register_routes(app):
             form=form,
             start_date=start_date,
             end_date=end_date,
-            Schedule=Schedule
+            Schedule=Schedule,
+            now=now,
+            datetime=datetime
         )
     
     @app.route('/api/optimize-schedule', methods=['POST'])
