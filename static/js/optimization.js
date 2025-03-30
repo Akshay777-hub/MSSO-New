@@ -98,7 +98,24 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 body: JSON.stringify(formDataObj),
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    if (response.status === 400 || response.status === 500) {
+                        // Try to parse the error response as JSON
+                        return response.text().then(text => {
+                            try {
+                                return { success: false, message: JSON.parse(text).message || 'Server error occurred' };
+                            } catch (e) {
+                                // If parsing fails, return the HTML directly for debugging
+                                console.error("Response is not valid JSON:", text);
+                                return { success: false, message: 'Server returned non-JSON response' };
+                            }
+                        });
+                    }
+                    throw new Error(`Server error: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 // Hide loading indicator
                 if (loadingIndicator) {
@@ -106,20 +123,35 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 
                 if (data.success) {
-                    displaySchedule(data.result, data.metadata);
+                    // The expected path for success
+                    if (data.redirect_url) {
+                        window.location.href = data.redirect_url;
+                        return;
+                    }
+                    // Handle both old and new response formats
+                    if (data.result && data.metadata) {
+                        // Old format with separate result and metadata
+                        displaySchedule(data.result, data.metadata);
+                    } else if (data.schedule && data.schedule.scenes) {
+                        // New format with schedule.scenes and schedule.metadata
+                        displaySchedule(data.schedule.scenes, data.schedule.metadata || {});
+                    } else {
+                        console.error("Unexpected data structure:", data);
+                        showAlert('Received unexpected data structure from server', 'warning');
+                    }
                 } else {
                     showAlert(data.message || 'Optimization failed', 'danger');
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
+                console.error('Error during optimization:', error);
                 
                 // Hide loading indicator
                 if (loadingIndicator) {
                     loadingIndicator.classList.add('d-none');
                 }
                 
-                showAlert('An error occurred during optimization. See console for details.', 'danger');
+                showAlert('An error occurred during optimization. Please try again or check the console for details.', 'danger');
             });
         });
     }

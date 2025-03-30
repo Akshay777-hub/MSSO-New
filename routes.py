@@ -1,6 +1,7 @@
 import os
 import logging
 import datetime
+import json
 from flask import render_template, request, redirect, url_for, flash, jsonify, session, send_from_directory
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename
@@ -15,7 +16,7 @@ from forms import (
 )
 from app import db, app
 from nlp_processor import process_screenplay, extract_screenplay_data
-from optimization_algorithms import (
+from optimization_algorithms_new import (
     optimize_schedule_ant_colony, optimize_schedule_tabu_search, 
     optimize_schedule_particle_swarm
 )
@@ -666,14 +667,22 @@ def register_routes(app):
         if not current_project:
             return jsonify({'success': False, 'message': 'No active project'}), 400
         
-        data = request.json
-        start_date_str = data.get('start_date')
-        end_date_str = data.get('end_date')
-        algorithm = data.get('algorithm', 'ant_colony')
-        schedule_name = data.get('name', f'Schedule {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}')
-        
-        if not start_date_str:
-            return jsonify({'success': False, 'message': 'Start date is required'}), 400
+        try:
+            data = request.get_json(force=True)
+            if not data:
+                logging.error(f"Invalid JSON data received: {request.data}")
+                return jsonify({'success': False, 'message': 'Invalid JSON data'}), 400
+                
+            start_date_str = data.get('start_date')
+            end_date_str = data.get('end_date')
+            algorithm = data.get('algorithm', 'ant_colony')
+            schedule_name = data.get('name', f'Schedule {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}')
+            
+            if not start_date_str:
+                return jsonify({'success': False, 'message': 'Start date is required'}), 400
+        except Exception as e:
+            logging.error(f"Error parsing optimization request: {e}", exc_info=True)
+            return jsonify({'success': False, 'message': f'Error parsing request: {str(e)}'}), 400
         
         try:
             # Parse dates
@@ -723,28 +732,34 @@ def register_routes(app):
             optimization_result = None
             algorithm_used = algorithm
             
-            if algorithm == 'ant_colony':
-                optimization_result = optimize_schedule_ant_colony(
-                    scenes, actors, locations, actor_availability, location_availability,
-                    actor_scenes, start_date, end_date
-                )
-                algorithm_used = 'ACOBM'
-            elif algorithm == 'tabu_search':
-                # For now, fallback to ant colony since it's more reliable
-                optimization_result = optimize_schedule_ant_colony(
-                    scenes, actors, locations, actor_availability, location_availability,
-                    actor_scenes, start_date, end_date
-                )
-                algorithm_used = 'TSBM'
-            elif algorithm == 'particle_swarm':
-                # For now, fallback to ant colony since it's more reliable
-                optimization_result = optimize_schedule_ant_colony(
-                    scenes, actors, locations, actor_availability, location_availability,
-                    actor_scenes, start_date, end_date
-                )
-                algorithm_used = 'PSOBM'
-            else:
-                return jsonify({'success': False, 'message': 'Invalid algorithm selected'}), 400
+            try:
+                if algorithm == 'ant_colony':
+                    optimization_result = optimize_schedule_ant_colony(
+                        scenes, actors, locations, actor_availability, location_availability,
+                        actor_scenes, start_date, end_date
+                    )
+                    algorithm_used = 'ACOBM'
+                elif algorithm == 'tabu_search':
+                    # Use the new tabu search algorithm from optimization_algorithms_new.py
+                    from optimization_algorithms_new import optimize_schedule_tabu_search
+                    optimization_result = optimize_schedule_tabu_search(
+                        scenes, actors, locations, actor_availability, location_availability,
+                        actor_scenes, start_date, end_date
+                    )
+                    algorithm_used = 'TSBM'
+                elif algorithm == 'particle_swarm':
+                    # Use the new particle swarm algorithm from optimization_algorithms_new.py
+                    from optimization_algorithms_new import optimize_schedule_particle_swarm
+                    optimization_result = optimize_schedule_particle_swarm(
+                        scenes, actors, locations, actor_availability, location_availability,
+                        actor_scenes, start_date, end_date
+                    )
+                    algorithm_used = 'PSOBM'
+                else:
+                    return jsonify({'success': False, 'message': 'Invalid algorithm selected'}), 400
+            except Exception as e:
+                logging.error(f"Algorithm execution error: {str(e)}", exc_info=True)
+                return jsonify({'success': False, 'message': f'Algorithm execution error: {str(e)}'}), 500
             
             # Extract schedule and metadata from optimization result
             if isinstance(optimization_result, dict) and 'schedule' in optimization_result:
