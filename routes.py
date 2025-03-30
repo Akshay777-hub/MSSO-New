@@ -331,7 +331,8 @@ def register_routes(app):
             'edit_actor.html',
             form=form,
             actor=actor,
-            current_project=current_project
+            current_project=current_project,
+            Scene=Scene  # Pass Scene model to template
         )
     
     @app.route('/locations')
