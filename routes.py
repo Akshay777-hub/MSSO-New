@@ -662,6 +662,8 @@ def register_routes(app):
     @login_required
     def api_optimize_schedule():
         """API endpoint to run schedule optimization."""
+        import datetime  # Import here to avoid unbound variable error
+        
         current_project = get_current_project()
         
         if not current_project:
@@ -686,6 +688,7 @@ def register_routes(app):
         
         try:
             # Parse dates
+            import datetime  # Import here for consistency
             start_date = datetime.datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = None
             
@@ -848,11 +851,28 @@ def register_routes(app):
             
             db.session.commit()
             
-            return jsonify({
+            # Format the response for the client
+            # Include result and metadata for both new and old format compatibility
+            response_data = {
                 'success': True,
                 'schedule_id': schedule.id,
                 'redirect_url': url_for('schedule_view', schedule_id=schedule.id)
-            })
+            }
+            
+            # Add result and metadata for old client compatibility
+            if isinstance(optimization_result, dict) and 'schedule' in optimization_result:
+                response_data['result'] = optimization_result['schedule']
+                response_data['metadata'] = optimization_result['metadata']
+            else:
+                response_data['result'] = optimal_schedule
+                response_data['metadata'] = {
+                    'total_cost': optimal_schedule.get('total_cost', 0),
+                    'total_days': optimal_schedule.get('total_duration', 0),
+                    'total_scenes': len(optimal_schedule),
+                    'algorithm': algorithm_used
+                }
+            
+            return jsonify(response_data)
         except Exception as e:
             db.session.rollback()
             logging.error(f"Schedule optimization error: {e}", exc_info=True)
