@@ -79,55 +79,164 @@ def extract_scenes(text):
     """
     scenes = []
     
-    # Regex pattern for scene headers (INT./EXT. followed by location and time)
-    scene_pattern = r'(INT\.|EXT\.|INT\.\/EXT\.|I\/E)\.?\s+(.*?)(?:\s+-\s+|\s+--\s+|\s+–\s+)?(DAY|NIGHT|MORNING|EVENING|AFTERNOON|DUSK|DAWN|LATER|CONTINUOUS|SAME TIME|SAME|MOMENTS LATER)?'
+    # Let's do a more robust extraction using line-by-line processing
+    lines = text.split('\n')
     
-    # Find all scene headers
-    scene_matches = re.finditer(scene_pattern, text, re.MULTILINE)
+    # Track scene information
+    scene_count = 0
+    current_scene = None
+    scene_content = []
+    
+    scene_pattern = r'^(INT|EXT|INT\.\/EXT|I\/E)\.\s+([^-]+)\s*-\s*(DAY|NIGHT|MORNING|EVENING|AFTERNOON|DUSK|DAWN|LATER|CONTINUOUS|SAME TIME|SAME|MOMENTS LATER)$'
     
     # Track current page
     page_number = 1
-    current_pos = 0
-    page_breaks = [m.start() for m in re.finditer(r'\n\s*\d+\.?\s*\n', text)]
     
-    for i, match in enumerate(scene_matches):
-        int_ext = match.group(1)
-        location = match.group(2).strip()
-        time_of_day = match.group(3) if match.group(3) else ""
+    for line in lines:
+        line = line.strip()
         
-        # Estimate page number
-        while page_breaks and match.start() > page_breaks[0]:
-            page_number += 1
-            page_breaks.pop(0)
-        
-        # Find scene number if it exists
-        scene_number = f"Scene {i+1}"
-        scene_num_match = re.search(r'(\d+[A-Z]?)\s*$', location)
-        if scene_num_match:
-            scene_number = scene_num_match.group(1)
-            location = location[:scene_num_match.start()].strip()
-        
-        # Get scene content (everything until the next scene header or end of text)
-        if i < len(list(re.finditer(scene_pattern, text, re.MULTILINE))) - 1:
-            next_match = list(re.finditer(scene_pattern, text, re.MULTILINE))[i+1]
-            scene_content = text[match.end():next_match.start()]
+        # Check if this is a scene header
+        match = re.match(scene_pattern, line)
+        if match or (line.startswith('INT.') or line.startswith('EXT.') or 
+                    line.startswith('INT./EXT.') or line.startswith('I/E.')):
+            
+            # Save the previous scene if there is one
+            if current_scene:
+                current_scene['content'] = '\n'.join(scene_content)
+                scenes.append(current_scene)
+                scene_content = []
+            
+            # Start a new scene
+            scene_count += 1
+            
+            # Extract components from the line
+            if match:
+                int_ext = match.group(1)
+                location = match.group(2).strip()
+                time_of_day = match.group(3).strip()
+            else:
+                # Manual extraction for headers that don't match the regex
+                parts = line.split(' - ')
+                
+                if len(parts) >= 2:
+                    header_part = parts[0].strip()
+                    time_part = parts[1].strip()
+                    
+                    # Extract INT/EXT
+                    if header_part.startswith('INT.'):
+                        int_ext = 'INT.'
+                        location = header_part[4:].strip()
+                    elif header_part.startswith('EXT.'):
+                        int_ext = 'EXT.'
+                        location = header_part[4:].strip()
+                    elif header_part.startswith('INT./EXT.'):
+                        int_ext = 'INT./EXT.'
+                        location = header_part[9:].strip()
+                    elif header_part.startswith('I/E.'):
+                        int_ext = 'I/E.'
+                        location = header_part[4:].strip()
+                    else:
+                        int_ext = ''
+                        location = header_part
+                    
+                    time_of_day = time_part
+                else:
+                    # Very basic fallback
+                    if line.startswith('INT.'):
+                        int_ext = 'INT.'
+                        location = line[4:].strip()
+                    elif line.startswith('EXT.'):
+                        int_ext = 'EXT.'
+                        location = line[4:].strip()
+                    elif line.startswith('INT./EXT.'):
+                        int_ext = 'INT./EXT.'
+                        location = line[9:].strip()
+                    elif line.startswith('I/E.'):
+                        int_ext = 'I/E.'
+                        location = line[4:].strip()
+                    else:
+                        int_ext = ''
+                        location = line
+                    
+                    time_of_day = ''
+            
+            # Create the new scene object
+            current_scene = {
+                'scene_number': f"Scene {scene_count}",
+                'int_ext': int_ext,
+                'location': location,
+                'time_of_day': time_of_day,
+                'page_number': page_number,
+                'content': ''
+            }
+        elif line.isdigit():
+            # This might be a page number
+            try:
+                num = int(line)
+                if num > page_number and num < page_number + 5:  # Reasonable page increment
+                    page_number = num
+            except ValueError:
+                pass
+            
+            # Add to current scene content
+            if current_scene:
+                scene_content.append(line)
         else:
-            scene_content = text[match.end():]
+            # Add to current scene content
+            if current_scene:
+                scene_content.append(line)
+    
+    # Add the last scene
+    if current_scene:
+        current_scene['content'] = '\n'.join(scene_content)
+        scenes.append(current_scene)
+    
+    # If no scenes were found, try a more lenient approach (direct patterns)
+    if not scenes:
+        logging.info("No scenes found with standard approach, trying backup method...")
         
-        scenes.append({
-            'scene_number': scene_number,
-            'int_ext': int_ext,
-            'location': location,
-            'time_of_day': time_of_day,
-            'page_number': page_number,
-            'content': scene_content
-        })
+        # Simpler regex to find just INT/EXT headers
+        basic_headers = re.finditer(r'(INT\.|EXT\.|INT\.\/EXT\.|I\/E)\.\s+([^\n]+)', text)
+        scene_matches = list(basic_headers)
+        
+        for i, match in enumerate(scene_matches):
+            int_ext = match.group(1)
+            location_and_time = match.group(2).strip()
+            
+            # Try to split location and time of day
+            parts = location_and_time.split(' - ')
+            if len(parts) >= 2:
+                location = parts[0].strip()
+                time_of_day = parts[1].strip()
+            else:
+                location = location_and_time
+                time_of_day = ""
+            
+            # Get scene content (everything until the next scene header or end of text)
+            if i < len(scene_matches) - 1:
+                next_match = scene_matches[i+1]
+                scene_content = text[match.end():next_match.start()]
+            else:
+                scene_content = text[match.end():]
+            
+            scenes.append({
+                'scene_number': f"Scene {i+1}",
+                'int_ext': int_ext,
+                'location': location,
+                'time_of_day': time_of_day,
+                'page_number': 1,
+                'content': scene_content
+            })
+    
+    # Final error check - if still no scenes with locations, provide warning
+    if not scenes or not any(scene['location'] for scene in scenes):
+        logging.warning("Failed to extract proper scene locations. Scene extraction may be incomplete.")
     
     return scenes
 
 def extract_actors(text, scenes):
     """
-    Extract actor/character information from screenplay text.
+    Extract actor/character information from screenplay text and assign arbitrary costs.
     
     Characters in screenplays are typically in ALL CAPS when they speak.
     """
@@ -145,24 +254,87 @@ def extract_actors(text, scenes):
     
     character_counter = Counter(character_names)
     
+    # Get total appearances to calculate relative importance
+    total_appearances = sum(count for name, count in character_counter.items() 
+                           if count >= 2 and name not in common_uppercase and len(name) > 1)
+    
+    # Calculate dialog length for each character
+    dialog_lengths = {}
+    for name in character_counter.keys():
+        if name not in common_uppercase and len(name) > 1:
+            # Find all dialog for this character
+            dialog_pattern = fr'\n\s*{re.escape(name)}\s*\n(.*?)(?=\n\s*[A-Z][A-Z\s\-\']+\s*\n|\Z)'
+            dialog_matches = re.finditer(dialog_pattern, text, re.DOTALL)
+            dialog_text = " ".join(match.group(1) for match in dialog_matches)
+            dialog_lengths[name] = len(dialog_text)
+    
     # Characters that appear multiple times are likely actual characters
+    import random
     for name, count in character_counter.items():
         if count >= 2 and name not in common_uppercase and len(name) > 1:
             # Use NLP to check if it's likely a person
             doc = nlp(name)
             if any(ent.label_ in ["PERSON", "ORG", "GPE"] for ent in doc.ents) or count >= 3:
+                # Calculate relative importance (0.0-1.0)
+                importance = min(1.0, count / (total_appearances * 0.3))
+                
+                # Calculate dialog importance
+                dialog_importance = 0.0
+                if name in dialog_lengths and sum(dialog_lengths.values()) > 0:
+                    dialog_importance = min(1.0, dialog_lengths[name] / (sum(dialog_lengths.values()) * 0.3))
+                
+                # Combine importance factors
+                combined_importance = (importance + dialog_importance) / 2
+                
+                # Assign cost based on importance
+                # Lead actors (high importance) cost more
+                base_cost = 1000  # Minimum cost
+                
+                # Star power factor - leads get much higher pay
+                if combined_importance > 0.8:  # Lead actor/actress
+                    cost_factor = 50.0  # A-list star
+                elif combined_importance > 0.5:  # Supporting role
+                    cost_factor = 20.0  # B-list actor
+                elif combined_importance > 0.2:  # Minor supporting role
+                    cost_factor = 5.0   # Character actor
+                else:  # Bit part
+                    cost_factor = 1.0   # Day player
+                
+                # Calculate cost (higher importance = higher cost)
+                actor_cost = base_cost * cost_factor * (1 + combined_importance)
+                
+                # Add some randomness (±30%)
+                cost_variation = random.uniform(0.7, 1.3)
+                final_cost = round(actor_cost * cost_variation, 2)
+                
                 actors.append({
                     'name': name,
                     'character_name': name,
-                    'appearances': count
+                    'appearances': count,
+                    'importance': combined_importance,
+                    'cost_per_day': final_cost,
+                    'email': f"{name.lower().replace(' ', '.')}@example.com",
+                    'phone': f"555-{random.randint(100, 999)}-{random.randint(1000, 9999)}"
                 })
     
+    # Sort by importance (descending)
+    actors.sort(key=lambda x: x['importance'], reverse=True)
     return actors
 
 def extract_locations(scenes):
-    """Extract unique locations from scene headers."""
+    """Extract unique locations from scene headers and assign arbitrary costs."""
     locations = []
     unique_locations = set()
+    
+    # Location complexity modifiers
+    complexity_keywords = {
+        "expensive": ["mansion", "castle", "palace", "penthouse", "yacht", "helicopter", "jet", "airport", 
+                     "hospital", "stadium", "concert", "theater", "downtown", "skyline", "skyscraper"],
+        "moderate": ["restaurant", "bar", "office", "school", "store", "shop", "mall", "park", 
+                    "beach", "hotel", "motel", "apartment", "condo", "street", "alley", "road"],
+        "inexpensive": ["living room", "bedroom", "kitchen", "bathroom", "hallway", "closet", "basement", 
+                       "attic", "garage", "yard", "porch", "balcony", "cabin", "shed"]
+    }
     
     for scene in scenes:
         location = scene['location'].strip()
@@ -175,9 +347,49 @@ def extract_locations(scenes):
             if scene['int_ext'] in ["INT./EXT.", "I/E", "EXT./INT."]:
                 location_type = "BOTH"
             
+            # Determine location category for address field
+            location_category = ""
+            location_entities = [ent.text for ent in doc.ents if ent.label_ in ["GPE", "ORG", "LOC", "FAC"]]
+            if location_entities:
+                location_category = f"{location_entities[0]} - "
+            
+            # Assign arbitrary cost based on complexity
+            base_cost = 1000  # Default base cost
+            
+            # Check for complexity keywords
+            location_lower = location.lower()
+            for keyword in complexity_keywords["expensive"]:
+                if keyword in location_lower:
+                    base_cost = 5000 + (len(location) * 10)  # More expensive
+                    break
+                    
+            for keyword in complexity_keywords["moderate"]:
+                if keyword in location_lower:
+                    base_cost = 2500 + (len(location) * 5)  # Moderate
+                    break
+                    
+            for keyword in complexity_keywords["inexpensive"]:
+                if keyword in location_lower:
+                    base_cost = 1000 + (len(location) * 2)  # Less expensive
+                    break
+            
+            # Exterior locations tend to be more expensive due to weather/lighting concerns
+            if location_type == "EXTERIOR":
+                base_cost *= 1.5
+            elif location_type == "BOTH":
+                base_cost *= 1.25
+                
+            # Add some randomness (±20%)
+            import random
+            cost_variation = random.uniform(0.8, 1.2)
+            final_cost = round(base_cost * cost_variation, 2)
+            
             locations.append({
                 'name': location,
-                'type': location_type
+                'type': location_type,
+                'category': location_category,
+                'cost_per_day': final_cost,
+                'address': f"{location_type} - {location_category}{location}"
             })
     
     return locations
@@ -282,7 +494,8 @@ def extract_screenplay_data(extracted_data, project_id):
             location = Location(
                 project_id=project_id,
                 name=location_data['name'],
-                address=f"{location_data['type']} - {location_data['name']}"
+                address=location_data.get('address', f"{location_data['type']} - {location_data['name']}"),
+                cost_per_day=location_data.get('cost_per_day', 1000.0)  # Use extracted cost or default
             )
             db.session.add(location)
             db.session.flush()  # Get ID without committing
@@ -294,7 +507,10 @@ def extract_screenplay_data(extracted_data, project_id):
             actor = Actor(
                 project_id=project_id,
                 name=actor_data['name'],
-                character_name=actor_data['character_name']
+                character_name=actor_data['character_name'],
+                cost_per_day=actor_data.get('cost_per_day', 1500.0),  # Use extracted cost or default
+                email=actor_data.get('email', ''),
+                phone=actor_data.get('phone', '')
             )
             db.session.add(actor)
             db.session.flush()  # Get ID without committing
