@@ -3,6 +3,8 @@ import logging
 import datetime
 import json
 from flask import render_template, request, redirect, url_for, flash, jsonify, session, send_from_directory
+from json_encoder import CustomJSONEncoder
+from utils_json import convert_datetime_to_strings
 from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.utils import secure_filename
 from models import (
@@ -117,7 +119,7 @@ def register_routes(app):
         schedules = []
         
         if current_project:
-            schedules = Schedule.query.filter_by(project_id=current_project.id).all()
+            schedules = Schedule.query.filter_by(project_id=current_project.id).order_by(Schedule.created_at.desc()).all()
         
         return render_template(
             'director_dashboard.html',
@@ -125,7 +127,8 @@ def register_routes(app):
             schedules=schedules,
             ProjectAccess=ProjectAccess,
             User=User,
-            datetime=datetime
+            datetime=datetime,
+            Schedule=Schedule
         )
     
     @app.route('/dashboard/production')
@@ -148,7 +151,8 @@ def register_routes(app):
             current_project=current_project,
             notifications=notifications,
             ProjectAccess=ProjectAccess,
-            User=User
+            User=User,
+            Schedule=Schedule
         )
     
     @app.route('/dashboard/coordinator')
@@ -171,7 +175,8 @@ def register_routes(app):
             current_project=current_project,
             notifications=notifications,
             ProjectAccess=ProjectAccess,
-            User=User
+            User=User,
+            Schedule=Schedule
         )
     
     @app.route('/projects/create', methods=['GET', 'POST'])
@@ -871,8 +876,11 @@ def register_routes(app):
                     'algorithm': algorithm_used
                 }
             
-            # Use our custom JSON encoder to manually serialize the response
-            from json_encoder import CustomJSONEncoder
+            # First, ensure all datetime objects are converted to strings
+            response_data = convert_datetime_to_strings(response_data)
+            
+            # Then use our custom JSON encoder to manually serialize the response
+            # This provides a double layer of protection against datetime serialization issues
             import json
             json_str = json.dumps(response_data, cls=CustomJSONEncoder)
             return app.response_class(
@@ -883,7 +891,9 @@ def register_routes(app):
         except Exception as e:
             db.session.rollback()
             logging.error(f"Schedule optimization error: {e}", exc_info=True)
-            error_response = json.dumps({'success': False, 'message': str(e)}, cls=CustomJSONEncoder)
+            error_data = {'success': False, 'message': str(e)}
+            error_data = convert_datetime_to_strings(error_data)
+            error_response = json.dumps(error_data, cls=CustomJSONEncoder)
             return app.response_class(
                 response=error_response, 
                 status=500,

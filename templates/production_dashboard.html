@@ -147,7 +147,11 @@
                         </a>
                     </div>
                     <div class="card-body">
-                        {% set schedules = current_project.schedules.all()[:5] %}
+                        {% if current_project %}
+                            {% set schedules = current_project.schedules.order_by(Schedule.created_at.desc()).limit(5).all() %}
+                        {% else %}
+                            {% set schedules = [] %}
+                        {% endif %}
                         {% if schedules %}
                             <div class="table-responsive">
                                 <table class="table table-hover">
