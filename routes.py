@@ -356,39 +356,94 @@ def register_routes(app):
     @app.route('/locations/edit/<int:location_id>', methods=['GET', 'POST'])
     @login_required
     def edit_location(location_id):
-        """Edit location route."""
+        """Edit or create location route."""
         current_project = get_current_project()
         
         if not current_project:
             flash('Please select a project first', 'warning')
             return redirect(url_for('index'))
         
-        location = Location.query.get_or_404(location_id)
+        # Check if this is an add new (id=0) or edit action
+        is_add = (location_id == 0)
         
-        # Ensure location belongs to current project
-        if location.project_id != current_project.id:
-            flash('You do not have access to this location', 'danger')
-            return redirect(url_for('locations_list'))
-        
-        form = LocationForm(obj=location)
+        if is_add:
+            # Initialize a new location for the current project
+            location = Location(project_id=current_project.id)
+            form = LocationForm()
+        else:
+            # Fetch existing location
+            location = Location.query.get_or_404(location_id)
+            
+            # Ensure location belongs to current project
+            if location.project_id != current_project.id:
+                flash('You do not have access to this location', 'danger')
+                return redirect(url_for('locations_list'))
+            
+            form = LocationForm(obj=location)
         
         if form.validate_on_submit():
-            location.name = form.name.data
-            location.address = form.address.data
-            location.cost_per_day = form.cost_per_day.data
+            if is_add:
+                # Create a new location
+                location = Location(
+                    project_id=current_project.id,
+                    name=form.name.data,
+                    address=form.address.data,
+                    cost_per_day=form.cost_per_day.data
+                )
+                db.session.add(location)
+                flash_message = 'Location added successfully!'
+            else:
+                # Update existing location
+                location.name = form.name.data
+                location.address = form.address.data
+                location.cost_per_day = form.cost_per_day.data
+                flash_message = 'Location updated successfully!'
             
             try:
                 db.session.commit()
-                flash('Location updated successfully!', 'success')
+                
+                # If this is a new location, also create some default availability
+                if is_add:
+                    import random
+                    import datetime
+                    from models import LocationAvailability
+                    
+                    # Generate some random availability for the next 30 days
+                    today = datetime.date.today()
+                    date_range = [today + datetime.timedelta(days=i) for i in range(30)]
+                    
+                    for date in date_range:
+                        # Skip weekends randomly
+                        if date.weekday() >= 5 and random.random() < 0.7:
+                            continue
+                            
+                        # 70% chance of being available
+                        if random.random() < 0.7:
+                            # Available this day with default hours
+                            start_time = datetime.time(hour=9, minute=0)  # 9 AM
+                            end_time = datetime.time(hour=18, minute=0)   # 6 PM
+                            
+                            location_availability = LocationAvailability(
+                                location_id=location.id,
+                                date=date,
+                                start_time=start_time,
+                                end_time=end_time,
+                                is_available=True
+                            )
+                            db.session.add(location_availability)
+                    
+                    db.session.commit()
+                
+                flash(flash_message, 'success')
                 return redirect(url_for('locations_list'))
             except Exception as e:
                 db.session.rollback()
-                flash(f'Failed to update location: {str(e)}', 'danger')
+                flash(f'Failed to {"add" if is_add else "update"} location: {str(e)}', 'danger')
         
         return render_template(
             'edit_location.html',
             form=form,
-            location=location,
+            location=None if is_add else location,
             current_project=current_project
         )
     

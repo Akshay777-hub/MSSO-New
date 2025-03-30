@@ -322,20 +322,24 @@ def extract_actors(text, scenes):
     return actors
 
 def extract_locations(scenes):
-    """Extract unique locations from scene headers and assign arbitrary costs."""
+    """Extract unique locations from scene headers and full screenplay and assign arbitrary costs."""
     locations = []
     unique_locations = set()
     
     # Location complexity modifiers
     complexity_keywords = {
         "expensive": ["mansion", "castle", "palace", "penthouse", "yacht", "helicopter", "jet", "airport", 
-                     "hospital", "stadium", "concert", "theater", "downtown", "skyline", "skyscraper"],
+                     "hospital", "stadium", "concert", "theater", "downtown", "skyline", "skyscraper", 
+                     "resort", "lobby", "courtroom", "lab", "laboratory", "military", "base"],
         "moderate": ["restaurant", "bar", "office", "school", "store", "shop", "mall", "park", 
-                    "beach", "hotel", "motel", "apartment", "condo", "street", "alley", "road"],
+                    "beach", "hotel", "motel", "apartment", "condo", "street", "alley", "road",
+                    "café", "cafe", "diner", "pool", "parking", "lot", "garden", "backyard", "front yard"],
         "inexpensive": ["living room", "bedroom", "kitchen", "bathroom", "hallway", "closet", "basement", 
-                       "attic", "garage", "yard", "porch", "balcony", "cabin", "shed"]
+                       "attic", "garage", "yard", "porch", "balcony", "cabin", "shed", "room", "den", 
+                       "study", "dining room", "pantry", "toilet", "shower", "foyer", "entry", "doorway"]
     }
     
+    # First, extract locations from scene headers
     for scene in scenes:
         location = scene['location'].strip()
         if location and location not in unique_locations:
@@ -384,6 +388,91 @@ def extract_locations(scenes):
             cost_variation = random.uniform(0.8, 1.2)
             final_cost = round(base_cost * cost_variation, 2)
             
+            locations.append({
+                'name': location,
+                'type': location_type,
+                'category': location_category,
+                'cost_per_day': final_cost,
+                'address': f"{location_type} - {location_category}{location}"
+            })
+    
+    # Now extract additional locations from dialogue and action descriptions
+    import re
+    
+    # Regular expressions for common location phrases
+    location_patterns = [
+        r"(?:at|in|to|from|near|outside|inside) the ([A-Z][a-z]+ [A-Za-z'\-]+)",  # at the Central Park
+        r"(?:at|in|to|from) ([A-Z][a-z]+'s [A-Za-z\-]+)",  # at John's House
+        r"EXT\. ([A-Z][A-Za-z'\- ]+) -",  # EXT. CENTRAL PARK -
+        r"INT\. ([A-Z][A-Za-z'\- ]+) -",  # INT. JOHN'S HOUSE -
+        r"(?:at|in|to|from) ([A-Z][a-z]+ [A-Za-z'\-]+)",  # at Central Park
+        r"(?:arrive|travel|go|head) (?:at|to|towards) ([A-Z][A-Za-z'\- ]+)",  # travel to Central Park
+    ]
+    
+    # Look through all scene content for potential locations
+    location_candidates = set()
+    for scene in scenes:
+        content = scene['content']
+        
+        # Apply all patterns
+        for pattern in location_patterns:
+            matches = re.finditer(pattern, content)
+            for match in matches:
+                location_name = match.group(1).strip()
+                # Filter out very short locations and common false positives
+                if len(location_name) > 3 and location_name not in ["The End", "The Room", "The Door", "The Car", "A Car"]:
+                    location_candidates.add(location_name)
+    
+    # Process all extracted location candidates
+    for location in location_candidates:
+        if location not in unique_locations:
+            unique_locations.add(location)
+            
+            # Determine if location is likely interior or exterior
+            location_lower = location.lower()
+            is_interior = any(keyword in location_lower for keyword in ["room", "house", "building", "office", "apartment"])
+            is_exterior = any(keyword in location_lower for keyword in ["street", "park", "beach", "mountain", "garden", "yard"])
+            
+            location_type = "INTERIOR" if is_interior else "EXTERIOR" if is_exterior else "BOTH"
+            
+            # Determine category using NLP
+            doc = nlp(location)
+            location_category = ""
+            location_entities = [ent.text for ent in doc.ents if ent.label_ in ["GPE", "ORG", "LOC", "FAC"]]
+            if location_entities:
+                location_category = f"{location_entities[0]} - "
+            
+            # Assign arbitrary cost based on complexity
+            base_cost = 1500  # Default base cost for extracted locations
+            
+            # Check for complexity keywords
+            for keyword in complexity_keywords["expensive"]:
+                if keyword in location_lower:
+                    base_cost = 5500 + (len(location) * 12)  # More expensive
+                    break
+                    
+            for keyword in complexity_keywords["moderate"]:
+                if keyword in location_lower:
+                    base_cost = 3000 + (len(location) * 6)  # Moderate
+                    break
+                    
+            for keyword in complexity_keywords["inexpensive"]:
+                if keyword in location_lower:
+                    base_cost = 1200 + (len(location) * 3)  # Less expensive
+                    break
+            
+            # Apply interior/exterior multiplier
+            if location_type == "EXTERIOR":
+                base_cost *= 1.5
+            elif location_type == "BOTH":
+                base_cost *= 1.25
+                
+            # Add some randomness (±25%)
+            import random
+            cost_variation = random.uniform(0.75, 1.25)
+            final_cost = round(base_cost * cost_variation, 2)
+            
+            # Add to the locations list
             locations.append({
                 'name': location,
                 'type': location_type,
@@ -488,6 +577,14 @@ def extract_screenplay_data(extracted_data, project_id):
         bool: True if successful
     """
     try:
+        import random
+        import datetime
+        from models import ActorAvailability, LocationAvailability
+        
+        # Get date range for availability (next 60 days)
+        today = datetime.date.today()
+        date_range = [today + datetime.timedelta(days=i) for i in range(60)]
+        
         # First, create all locations
         location_map = {}  # Map location name to Location object
         for location_data in extracted_data['locations']:
@@ -500,6 +597,35 @@ def extract_screenplay_data(extracted_data, project_id):
             db.session.add(location)
             db.session.flush()  # Get ID without committing
             location_map[location_data['name']] = location
+            
+            # Generate random availability for locations
+            # More expensive locations are less available
+            availability_chance = 0.9 - (min(location.cost_per_day, 10000) / 20000)
+            availability_chance = max(0.4, availability_chance)  # Minimum 40% availability
+            
+            for date in date_range:
+                # Skip weekends for some locations
+                if date.weekday() >= 5 and random.random() < 0.7:  # 70% of locations unavailable on weekends
+                    continue
+                    
+                # Randomize availability
+                if random.random() < availability_chance:
+                    # Available this day
+                    # Also generate random time restrictions
+                    start_hour = random.randint(7, 10)  # Between 7 AM and 10 AM
+                    end_hour = random.randint(16, 20)  # Between 4 PM and 8 PM
+                    
+                    start_time = datetime.time(hour=start_hour, minute=0)
+                    end_time = datetime.time(hour=end_hour, minute=0)
+                    
+                    location_availability = LocationAvailability(
+                        location_id=location.id,
+                        date=date,
+                        start_time=start_time,
+                        end_time=end_time,
+                        is_available=True
+                    )
+                    db.session.add(location_availability)
         
         # Create all actors
         actor_map = {}  # Map actor name to Actor object
@@ -515,6 +641,23 @@ def extract_screenplay_data(extracted_data, project_id):
             db.session.add(actor)
             db.session.flush()  # Get ID without committing
             actor_map[actor_data['name']] = actor
+            
+            # Generate random availability for actors
+            # More important actors (higher cost) have less availability
+            importance = actor_data.get('importance', 0.5)
+            availability_chance = 0.95 - (importance * 0.5)  # Convert importance to unavailability
+            availability_chance = max(0.3, availability_chance)  # At least 30% availability
+            
+            for date in date_range:
+                # Randomize availability with weight by importance
+                if random.random() < availability_chance:
+                    # Actor is available this day
+                    actor_availability = ActorAvailability(
+                        actor_id=actor.id,
+                        date=date,
+                        is_available=True
+                    )
+                    db.session.add(actor_availability)
         
         # Create all scenes
         scene_map = {}  # Map scene number to Scene object
