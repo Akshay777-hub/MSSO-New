@@ -23,6 +23,10 @@ login_manager = LoginManager()
 app = Flask(__name__)
 app.secret_key = os.environ.get("SESSION_SECRET", os.urandom(24).hex())
 
+# Import custom JSON encoder and configure app to use it
+from json_encoder import CustomJSONEncoder
+app.json_encoder = CustomJSONEncoder
+
 # Disable CSRF protection globally
 app.config['WTF_CSRF_ENABLED'] = False
 

@@ -114,7 +114,13 @@
                     </div>
                     <div class="d-flex justify-content-between mb-3">
                         <strong>Total Scenes:</strong>
-                        <span>{{ scenes_by_date|sum(attribute='value')|length }}</span>
+                        <span>
+                            {% set total_scenes = 0 %}
+                            {% for date_scenes in scenes_by_date.values() %}
+                                {% set total_scenes = total_scenes + date_scenes|length %}
+                            {% endfor %}
+                            {{ total_scenes }}
+                        </span>
                     </div>
                     <div class="d-flex justify-content-between mb-3">
                         <strong>Created By:</strong>
@@ -158,7 +164,7 @@
                     <h5 class="mb-0">Cast & Crew Call Times</h5>
                 </div>
                 <div class="card-body">
-                    {% if scenes_by_date %}
+                    {% if scenes_by_date and scenes_by_date.keys()|list|length > 0 %}
                         {% set first_date = scenes_by_date.keys()|list|first %}
                         {% set first_day_scenes = scenes_by_date.get(first_date, []) %}
                         
