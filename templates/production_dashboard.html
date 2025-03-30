@@ -148,7 +148,7 @@
                     </div>
                     <div class="card-body">
                         {% if current_project %}
-                            {% set schedules = current_project.schedules.order_by(Schedule.created_at.desc()).limit(5).all() %}
+                            {% set schedules = Schedule.query.filter_by(project_id=current_project.id).order_by(Schedule.created_at.desc()).limit(5).all() %}
                         {% else %}
                             {% set schedules = [] %}
                         {% endif %}
