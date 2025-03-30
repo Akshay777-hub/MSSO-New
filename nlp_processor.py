@@ -2,9 +2,17 @@ import PyPDF2
 import spacy
 import re
 import logging
+import sys
+import traceback
 from collections import Counter, defaultdict
 from models import Scene, Actor, Location, ActorScene, SceneConstraint
 from app import db
+
+# Configure logging for better error reporting
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # Initialize spaCy NLP model
 try:
@@ -718,15 +726,31 @@ def extract_screenplay_data(extracted_data, project_id):
         # First, create all locations
         location_map = {}  # Map location name to Location object
         for location_data in extracted_data['locations']:
+            # Clean and sanitize text data to prevent encoding issues
+            location_name = str(location_data['name']).strip()
+            location_type = str(location_data.get('type', '')).strip()
+            location_address = str(location_data.get('address', f"{location_type} - {location_name}")).strip()
+            
+            # Truncate long text fields to prevent database issues
+            if len(location_name) > 100:
+                location_name = location_name[:97] + "..."
+            if len(location_address) > 200:
+                location_address = location_address[:197] + "..."
+                
             location = Location(
                 project_id=project_id,
-                name=location_data['name'],
-                address=location_data.get('address', f"{location_data['type']} - {location_data['name']}"),
-                cost_per_day=location_data.get('cost_per_day', 1000.0)  # Use extracted cost or default
+                name=location_name,
+                address=location_address,
+                cost_per_day=float(location_data.get('cost_per_day', 1000.0))  # Use extracted cost or default
             )
-            db.session.add(location)
-            db.session.flush()  # Get ID without committing
-            location_map[location_data['name']] = location
+            
+            try:
+                db.session.add(location)
+                db.session.flush()  # Get ID without committing
+                location_map[location_name] = location
+            except Exception as e:
+                logging.error(f"Error adding location: {str(e)}")
+                # Try to continue with other locations
             
             # Generate random availability for locations
             # More expensive locations are less available
@@ -760,17 +784,32 @@ def extract_screenplay_data(extracted_data, project_id):
         # Create all actors
         actor_map = {}  # Map actor name to Actor object
         for actor_data in extracted_data['actors']:
+            # Clean and sanitize text data to prevent encoding issues
+            actor_name = str(actor_data['name']).strip()
+            character_name = str(actor_data['character_name']).strip()
+            
+            # Truncate long text fields to prevent database issues
+            if len(actor_name) > 100:
+                actor_name = actor_name[:97] + "..."
+            if len(character_name) > 100:
+                character_name = character_name[:97] + "..."
+                
             actor = Actor(
                 project_id=project_id,
-                name=actor_data['name'],
-                character_name=actor_data['character_name'],
-                cost_per_day=actor_data.get('cost_per_day', 1500.0),  # Use extracted cost or default
-                email=actor_data.get('email', ''),
-                phone=actor_data.get('phone', '')
+                name=actor_name,
+                character_name=character_name,
+                cost_per_day=float(actor_data.get('cost_per_day', 1500.0)),  # Use extracted cost or default
+                email=str(actor_data.get('email', '')).strip()[:120],  # Limit email length
+                phone=str(actor_data.get('phone', '')).strip()[:20]    # Limit phone length
             )
-            db.session.add(actor)
-            db.session.flush()  # Get ID without committing
-            actor_map[actor_data['name']] = actor
+            
+            try:
+                db.session.add(actor)
+                db.session.flush()  # Get ID without committing
+                actor_map[actor_name] = actor
+            except Exception as e:
+                logging.error(f"Error adding actor: {str(e)}")
+                # Try to continue with other actors
             
             # Generate random availability for actors
             # More important actors (higher cost) have less availability
@@ -792,71 +831,116 @@ def extract_screenplay_data(extracted_data, project_id):
         # Create all scenes
         scene_map = {}  # Map scene number to Scene object
         for scene_data in extracted_data['scenes']:
-            # Find matching location
-            location_id = None
-            if scene_data['location'] in location_map:
-                location_id = location_map[scene_data['location']].id
-            
-            # Calculate estimated duration based on content length
-            # This is a rough estimate: about 1 minute per page
-            content_length = len(scene_data['content'])
-            estimated_duration = max(0.25, min(3, content_length / 5000))  # Between 15 min and 3 hours
-            
-            scene = Scene(
-                project_id=project_id,
-                scene_number=scene_data['scene_number'],
-                description=scene_data['content'][:200] + "..." if len(scene_data['content']) > 200 else scene_data['content'],
-                location_id=location_id,
-                estimated_duration=estimated_duration,
-                int_ext=scene_data['int_ext'],
-                time_of_day=scene_data['time_of_day'],
-                page_number=scene_data['page_number']
-            )
-            db.session.add(scene)
-            db.session.flush()  # Get ID without committing
-            scene_map[scene_data['scene_number']] = scene
+            try:
+                # Clean and sanitize scene data to prevent encoding issues
+                scene_number = str(scene_data.get('scene_number', '')).strip()
+                scene_content = str(scene_data.get('content', '')).strip()
+                scene_location = str(scene_data.get('location', '')).strip()
+                scene_int_ext = str(scene_data.get('int_ext', '')).strip()
+                scene_time_of_day = str(scene_data.get('time_of_day', '')).strip()
+                
+                # Limit scene number length
+                if len(scene_number) > 20:
+                    scene_number = scene_number[:17] + "..."
+                
+                # Truncate description text
+                scene_description = scene_content[:200] + "..." if len(scene_content) > 200 else scene_content
+                
+                # Find matching location
+                location_id = None
+                if scene_location in location_map:
+                    location_id = location_map[scene_location].id
+                
+                # Calculate estimated duration based on content length
+                # This is a rough estimate: about 1 minute per page
+                content_length = len(scene_content)
+                estimated_duration = max(0.25, min(3, content_length / 5000))  # Between 15 min and 3 hours
+                
+                # Get page number as float, with default
+                try:
+                    page_number = float(scene_data.get('page_number', 0))
+                except (ValueError, TypeError):
+                    page_number = 0.0
+                
+                scene = Scene(
+                    project_id=project_id,
+                    scene_number=scene_number,
+                    description=scene_description,
+                    location_id=location_id,
+                    estimated_duration=estimated_duration,
+                    int_ext=scene_int_ext[:10],  # Limit to field size
+                    time_of_day=scene_time_of_day[:20],  # Limit to field size
+                    page_number=page_number
+                )
+                db.session.add(scene)
+                db.session.flush()  # Get ID without committing
+                scene_map[scene_number] = scene
+            except Exception as e:
+                logging.error(f"Error adding scene {scene_data.get('scene_number', 'unknown')}: {str(e)}")
+                # Continue with next scene
         
         # Create actor-scene relationships
-        for actor_name, scene_numbers in extracted_data['actor_scenes'].items():
-            if actor_name not in actor_map:
-                continue
+        for actor_name, scene_numbers in extracted_data.get('actor_scenes', {}).items():
+            try:
+                actor_name = str(actor_name).strip()
+                if not actor_name or actor_name not in actor_map:
+                    continue
+                    
+                actor = actor_map[actor_name]
                 
-            actor = actor_map[actor_name]
-            
-            for scene_number in scene_numbers:
-                if scene_number not in scene_map:
+                for scene_number in scene_numbers:
+                    scene_number = str(scene_number).strip()
+                    if not scene_number or scene_number not in scene_map:
+                        continue
+                        
+                    scene = scene_map[scene_number]
+                    
+                    # Estimate number of lines - use try-except to handle regex errors
+                    try:
+                        scene_content = scene.description
+                        actor_pattern = fr'\n\s*{re.escape(actor_name)}\s*\n'
+                        lines_count = len(re.findall(actor_pattern, scene_content))
+                    except Exception as e:
+                        logging.warning(f"Error calculating lines for actor {actor_name} in scene {scene_number}: {str(e)}")
+                        lines_count = 1  # Default to 1 line
+                    
+                    actor_scene = ActorScene(
+                        actor_id=actor.id,
+                        scene_id=scene.id,
+                        lines_count=max(1, lines_count)  # At least 1 line
+                    )
+                    db.session.add(actor_scene)
+            except Exception as e:
+                logging.error(f"Error creating actor-scene relationship for {actor_name}: {str(e)}")
+                # Continue with next actor
+        
+        # Create scene constraints
+        for constraint_data in extracted_data.get('constraints', []):
+            try:
+                scene_number = str(constraint_data.get('scene_number', '')).strip()
+                
+                if not scene_number or scene_number not in scene_map:
                     continue
                     
                 scene = scene_map[scene_number]
                 
-                # Estimate number of lines
-                scene_content = scene.description
-                actor_pattern = fr'\n\s*{re.escape(actor_name)}\s*\n'
-                lines_count = len(re.findall(actor_pattern, scene_content))
-                
-                actor_scene = ActorScene(
-                    actor_id=actor.id,
-                    scene_id=scene.id,
-                    lines_count=max(1, lines_count)  # At least 1 line
-                )
-                db.session.add(actor_scene)
-        
-        # Create scene constraints
-        for constraint_data in extracted_data['constraints']:
-            scene_number = constraint_data['scene_number']
-            
-            if scene_number not in scene_map:
-                continue
-                
-            scene = scene_map[scene_number]
-            
-            for constraint in constraint_data['constraints']:
-                scene_constraint = SceneConstraint(
-                    scene_id=scene.id,
-                    constraint_type=constraint['type'],
-                    description=constraint['description']
-                )
-                db.session.add(scene_constraint)
+                for constraint in constraint_data.get('constraints', []):
+                    constraint_type = str(constraint.get('type', '')).strip()[:50]  # Limit to field size
+                    constraint_desc = str(constraint.get('description', '')).strip()
+                    
+                    # Truncate long description
+                    if len(constraint_desc) > 500:
+                        constraint_desc = constraint_desc[:497] + "..."
+                    
+                    scene_constraint = SceneConstraint(
+                        scene_id=scene.id,
+                        constraint_type=constraint_type,
+                        description=constraint_desc
+                    )
+                    db.session.add(scene_constraint)
+            except Exception as e:
+                logging.error(f"Error adding constraint for scene {constraint_data.get('scene_number', 'unknown')}: {str(e)}")
+                # Continue with next constraint
         
         db.session.commit()
         return True
