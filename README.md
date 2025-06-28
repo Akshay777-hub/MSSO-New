@@ -247,9 +247,26 @@ mypy .
 pytest --cov=.
 ```
 
-## 📄 License
+## � Contributors
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+We appreciate all the contributors who have helped make this project better:
+
+<!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
+<!-- prettier-ignore-start -->
+<!-- markdownlint-disable -->
+
+<!-- markdownlint-restore -->
+<!-- prettier-ignore-end -->
+
+<!-- ALL-CONTRIBUTORS-LIST:END -->
+
+### How to Contribute
+
+We welcome contributions! See our [Contributing Guidelines](#-contributing) section above for details on how to get started.
+
+[![Contributors](https://contrib.rocks/image?repo=owner/MSSO-New)](https://github.com/owner/MSSO-New/graphs/contributors)
+
+*Note: Replace `owner/MSSO-New` with your actual GitHub repository path*
 
 
 ### Performance Improvements
@@ -264,5 +281,3 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **Built with ❤️ for the film production community**
 
 *Making film production scheduling intelligent, efficient, and stress-free.*
-
-//tryingsmthng
