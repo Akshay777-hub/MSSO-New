@@ -260,7 +260,7 @@ We appreciate all the contributors who have helped make this project better:
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
-### How to Contribute
+### How to Contribute.
 
 We welcome contributions! See our [Contributing Guidelines](#-contributing) section above for details on how to get started.
 
