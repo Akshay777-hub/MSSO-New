@@ -1,0 +1,8 @@
+flask
+gunicorn
+requests
+pandas
+numpy
+sqlalchemy
+jinja2
+python-dotenv
